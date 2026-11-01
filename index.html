@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Two truths and a lie | Made by Sahil Akhtar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#10172E; --blue:#2F4CFF; --deep:#2038D6; --sun:#FFD43B;
+  --coral:#FF5C7A; --mint:#1FBF8F; --paper:#FFFBF0; --mute:#6B7390;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{
+  background:var(--blue); color:var(--ink);
+  font-family:'Bricolage Grotesque','Trebuchet MS',system-ui,sans-serif;
+  font-size:17px; line-height:1.4;
+  padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0);
+}
+#app{max-width:520px;margin:0 auto;padding:28px 18px 60px}
+h1{font-size:clamp(40px,12vw,60px);line-height:.95;margin:8px 0 12px;color:var(--paper);font-weight:800;letter-spacing:-.02em}
+h2{font-size:26px;margin:0 0 6px;font-weight:800;color:var(--paper);letter-spacing:-.01em}
+.sub{color:#DCE3FF;margin:0 0 22px}
+.panel{background:var(--paper);border-radius:22px;padding:20px;margin-bottom:16px;box-shadow:0 6px 0 var(--deep)}
+label{display:block;font-weight:600;margin-bottom:6px}
+input[type=text]{
+  width:100%;font:inherit;padding:13px 14px;border-radius:14px;
+  border:2px solid var(--ink);background:#fff;color:var(--ink);
+}
+input[type=text]:focus{outline:3px solid var(--sun);outline-offset:1px}
+button{
+  font:inherit;font-weight:800;cursor:pointer;border:2px solid var(--ink);
+  background:var(--sun);color:var(--ink);padding:13px 18px;border-radius:14px;
+  box-shadow:0 4px 0 var(--ink);transition:transform .08s, box-shadow .08s;width:100%;
+}
+button:active:not(:disabled){transform:translateY(3px);box-shadow:0 1px 0 var(--ink)}
+button:focus-visible{outline:3px solid var(--paper);outline-offset:3px}
+button:disabled{opacity:.45;cursor:not-allowed}
+button.ghost{background:var(--paper)}
+button.small{width:auto;padding:8px 14px;font-size:15px}
+.gap{margin-top:14px}
+.or{text-align:center;color:var(--mute);margin:16px 0}
+.err{background:var(--coral);color:#fff;border-radius:12px;padding:10px 14px;margin-bottom:14px;font-weight:600}
+.code{font-size:64px;font-weight:800;letter-spacing:.14em;text-align:center;margin:4px 0 2px;color:var(--ink)}
+.hint{color:var(--mute);text-align:center;margin:0 0 14px;font-size:15px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 4px}
+.chip{background:#fff;border:2px solid var(--ink);border-radius:999px;padding:6px 13px;font-weight:600;font-size:16px}
+.chip.host{background:var(--sun)}
+.chip.done{background:var(--mint);color:#fff;border-color:var(--ink)}
+
+/* statement cards: tilted like a hand of playing cards */
+.cards{display:flex;flex-direction:column;gap:14px;margin:18px 0}
+.card{
+  position:relative;background:var(--paper);border:3px solid var(--ink);border-radius:18px;
+  padding:18px 18px 18px 18px;text-align:left;font:inherit;font-weight:600;color:var(--ink);
+  box-shadow:0 5px 0 var(--ink);width:100%;
+}
+.card:nth-child(1){transform:rotate(-1.4deg)}
+.card:nth-child(2){transform:rotate(.9deg)}
+.card:nth-child(3){transform:rotate(-.6deg)}
+button.card:not(:disabled):hover{background:#fff}
+button.card:active:not(:disabled){box-shadow:0 2px 0 var(--ink)}
+.card.picked{background:var(--sun)}
+.card.truth{background:#D8F7EA}
+.card.lie{background:#FFE0E6}
+.card .tag{
+  display:inline-block;margin-top:10px;padding:3px 12px;border-radius:999px;
+  font-weight:800;font-size:14px;border:2px solid var(--ink);background:#fff;
+}
+.card.lie .tag{background:var(--coral);color:#fff}
+.card.truth .tag{background:var(--mint);color:#fff}
+.card .who{display:block;margin-top:8px;font-size:15px;font-weight:400;color:var(--mute)}
+.stamp{
+  position:absolute;right:10px;top:-14px;transform:rotate(8deg);
+  background:var(--coral);color:#fff;border:3px solid var(--ink);border-radius:10px;
+  padding:2px 14px;font-weight:800;font-size:22px;
+  animation:stamp .35s cubic-bezier(.2,1.6,.4,1) both;
+}
+@keyframes stamp{from{transform:rotate(8deg) scale(2.6);opacity:0}to{transform:rotate(8deg) scale(1);opacity:1}}
+
+/* writing form */
+.write{display:flex;flex-direction:column;gap:12px;margin-top:6px}
+.write .row{background:#fff;border:2px solid var(--ink);border-radius:16px;padding:12px}
+.write .row.islie{background:#FFE0E6}
+.write .row input[type=text]{border:none;padding:4px 2px;background:transparent}
+.write .row input[type=text]:focus{outline:none}
+.write .row:focus-within{outline:3px solid var(--sun)}
+.write .lie-pick{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:15px;font-weight:600;cursor:pointer}
+.write .lie-pick input{width:20px;height:20px;accent-color:var(--coral)}
+
+.board{list-style:none;margin:0;padding:0}
+.board li{display:flex;justify-content:space-between;padding:8px 0;border-bottom:2px dashed #D9D3BE;font-weight:600}
+.board li:last-child{border-bottom:none}
+.board .gain{color:var(--mint);margin-left:8px}
+.pill{display:inline-block;background:var(--ink);color:var(--paper);border-radius:999px;padding:3px 12px;font-size:14px;font-weight:600}
+.brand{text-align:center;color:#DCE3FF;font-size:14px;margin-top:26px}
+.brand b{color:var(--sun)}
+.progress{color:#DCE3FF;margin:0 0 4px;font-weight:600}
+.big{font-size:22px;font-weight:800;margin:0 0 6px}
+.winner{font-size:34px;font-weight:800;margin:4px 0 14px;line-height:1.05}
+
+@media (prefers-reduced-motion:reduce){.stamp{animation:none}button{transition:none}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="brand">Made by <b>Sahil Akhtar</b></div>
+
+<script>
+const app = document.getElementById('app');
+let session = null;
+try { session = JSON.parse(localStorage.getItem('ttl-session') || 'null'); } catch (e) {}
+let S = null;                 // latest server state
+let renderedKey = null;       // avoids re-rendering (and stealing focus) while typing
+let draft = { s: ['', '', ''], lie: null };
+let error = '';
+let busy = false;
+
+const esc = t => String(t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+async function api(path, body) {
+  const opt = body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {};
+  const r = await fetch(path, opt);
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) { const e = new Error(j.error || 'Something went wrong. Try again.'); e.status = r.status; throw e; }
+  return j;
+}
+
+async function act(type, extra = {}) {
+  if (busy) return;
+  busy = true; error = '';
+  try {
+    await api('/api/action', { type, code: session.code, pid: session.pid, ...extra });
+    await poll(true);
+  } catch (e) { error = e.message; renderedKey = null; render(); }
+  busy = false;
+}
+
+function saveSession(s) { session = s; localStorage.setItem('ttl-session', JSON.stringify(s)); }
+function leave() {
+  session = null; S = null; renderedKey = null; draft = { s: ['', '', ''], lie: null };
+  localStorage.removeItem('ttl-session'); render();
+}
+
+async function poll(force) {
+  if (!session) return;
+  try {
+    const s = await api(`/api/state?code=${session.code}&pid=${session.pid}`);
+    const prevPhase = S && S.phase;
+    S = s;
+    if (prevPhase === 'lobby' && s.phase === 'writing') draft = { s: ['', '', ''], lie: null };
+    const key = (s.phase === 'writing' && !s.submitted) ? 'writing-form' : `${s.phase}-${s.v}`;
+    if (force || key !== renderedKey) { renderedKey = key; render(); }
+  } catch (e) {
+    if (e.status === 404) { error = 'That room is gone. Start a new one.'; leave(); }
+  }
+}
+
+/* ---------- screens ---------- */
+function render() {
+  if (!session || !S) return renderHome();
+  const fn = { lobby: renderLobby, writing: renderWriting, voting: renderRound, reveal: renderRound, final: renderFinal }[S.phase];
+  fn();
+}
+
+function errBox() { return error ? `<div class="err" role="alert">${esc(error)}</div>` : ''; }
+
+function renderHome() {
+  const prefill = new URLSearchParams(location.search).get('room') || '';
+  app.innerHTML = `
+    <h1>Two truths and a lie</h1>
+    <p class="sub">Write three things about yourself. Your friends guess which one is fake.</p>
+    ${errBox()}
+    <div class="panel">
+      <label for="name">Your name</label>
+      <input id="name" type="text" maxlength="16" autocomplete="off" placeholder="Sahil">
+      <button class="gap" id="create">Start a room</button>
+      <div class="or">or join your friends</div>
+      <label for="code">Room code</label>
+      <input id="code" type="text" maxlength="4" autocomplete="off" autocapitalize="characters" placeholder="ABCD" value="${esc(prefill.toUpperCase())}">
+      <button class="gap ghost" id="join">Join room</button>
+    </div>`;
+  const name = document.getElementById('name');
+  name.value = localStorage.getItem('ttl-name') || '';
+  const go = async (type) => {
+    error = '';
+    try {
+      localStorage.setItem('ttl-name', name.value);
+      const res = await api('/api/action', { type, name: name.value, code: document.getElementById('code').value });
+      saveSession({ code: res.code, pid: res.pid });
+      history.replaceState(null, '', location.pathname);
+      renderedKey = null; await poll(true);
+    } catch (e) { error = e.message; renderHome(); }
+  };
+  document.getElementById('create').onclick = () => go('create');
+  document.getElementById('join').onclick = () => go('join');
+}
+
+function renderLobby() {
+  const link = `${location.origin}${location.pathname}?room=${S.code}`;
+  const enough = S.players.length >= 3;
+  app.innerHTML = `
+    <h2>Waiting for friends</h2>
+    <p class="sub">Share this code or link. Everyone needs a phone or laptop.</p>
+    ${errBox()}
+    <div class="panel">
+      <div class="code">${esc(S.code)}</div>
+      <p class="hint">${esc(link)}</p>
+      <button class="ghost" id="copy">Copy invite link</button>
+    </div>
+    <div class="panel">
+      <p class="big">${S.players.length} in the room</p>
+      <div class="chips">${S.players.map(p => `<span class="chip ${p.isHost ? 'host' : ''}">${esc(p.name)}${p.id === S.you ? ' (you)' : ''}</span>`).join('')}</div>
+    </div>
+    ${S.isHost
+      ? `<button id="start" ${enough ? '' : 'disabled'}>${enough ? 'Start the game' : 'Need 3 players to start'}</button>`
+      : `<p class="sub">The host will start the game.</p>`}
+    <button class="ghost small gap" id="leave">Leave room</button>`;
+  document.getElementById('copy').onclick = async (e) => {
+    try { await navigator.clipboard.writeText(link); e.target.textContent = 'Link copied'; }
+    catch { e.target.textContent = 'Copy it from above'; }
+  };
+  const st = document.getElementById('start'); if (st) st.onclick = () => act('start');
+  document.getElementById('leave').onclick = leave;
+}
+
+function renderWriting() {
+  if (S.submitted) {
+    const waiting = S.players.filter(p => !p.submitted);
+    const ready = S.players.length - waiting.length;
+    app.innerHTML = `
+      <h2>Cards are in</h2>
+      <p class="sub">Waiting for ${waiting.length} ${waiting.length === 1 ? 'friend' : 'friends'} to finish.</p>
+      ${errBox()}
+      <div class="panel">
+        <div class="chips">${S.players.map(p => `<span class="chip ${p.submitted ? 'done' : ''}">${esc(p.name)}</span>`).join('')}</div>
+      </div>
+      ${S.isHost && ready >= 2 && waiting.length ? `<button id="begin">Start with ${ready} players ready</button>` : ''}`;
+    const b = document.getElementById('begin'); if (b) b.onclick = () => act('begin');
+    return;
+  }
+  const rows = [0, 1, 2].map(i => `
+    <div class="row ${draft.lie === i ? 'islie' : ''}" data-row="${i}">
+      <input type="text" maxlength="120" data-i="${i}" autocomplete="off"
+        placeholder="${['Something true about you', 'Another true thing', 'Now the fake one'][i]}" value="${esc(draft.s[i])}" aria-label="Statement ${i + 1}">
+      <label class="lie-pick"><input type="radio" name="lie" value="${i}" ${draft.lie === i ? 'checked' : ''}> This one is the lie</label>
+    </div>`).join('');
+  app.innerHTML = `
+    <h2>Write your three</h2>
+    <p class="sub">Two true, one lie. Make the lie believable. Your friends see the cards in random order.</p>
+    ${errBox()}
+    <div class="panel"><div class="write">${rows}</div></div>
+    <button id="submit">Lock in my cards</button>`;
+  app.querySelectorAll('input[type=text]').forEach(inp => inp.oninput = () => { draft.s[+inp.dataset.i] = inp.value; });
+  app.querySelectorAll('input[type=radio]').forEach(r => r.onchange = () => {
+    draft.lie = +r.value;
+    app.querySelectorAll('.row').forEach(row => row.classList.toggle('islie', +row.dataset.row === draft.lie));
+  });
+  document.getElementById('submit').onclick = () => act('submit', { statements: draft.s, lie: draft.lie });
+}
+
+function scoreboard(withGains) {
+  const gains = {};
+  if (withGains && S.round && S.round.gains) S.round.gains.forEach(g => gains[g.name] = g.points);
+  const sorted = [...S.players].sort((a, b) => b.score - a.score);
+  return `<ul class="board">${sorted.map(p => `
+    <li><span>${esc(p.name)}</span><span>${p.score}${gains[p.name] ? `<span class="gain">+${gains[p.name]}</span>` : ''}</span></li>`).join('')}</ul>`;
+}
+
+function renderRound() {
+  const r = S.round;
+  const mine = r.presenterId === S.you;
+  const revealed = S.phase === 'reveal';
+  const head = `<p class="progress">Round ${r.index} of ${r.total}</p>
+    <h2>${mine ? 'Your cards are up' : `${esc(r.presenterName)}'s cards`}</h2>`;
+
+  let cards;
+  if (revealed) {
+    cards = r.statements.map((t, i) => {
+      const isLie = i === r.lie;
+      const names = r.tally[i];
+      return `<div class="card ${isLie ? 'lie' : 'truth'}">
+        ${isLie ? '<span class="stamp">LIE</span>' : ''}
+        ${esc(t)}
+        <span class="tag">${isLie ? 'The lie' : 'True'}</span>
+        <span class="who">${names.length ? `Picked by ${names.map(esc).join(', ')}` : 'Nobody picked this'}</span>
+      </div>`;
+    }).join('');
+  } else {
+    cards = r.statements.map((t, i) => {
+      if (mine) return `<div class="card">${esc(t)}</div>`;
+      const picked = r.myVote === i;
+      return `<button class="card ${picked ? 'picked' : ''}" data-i="${i}" ${r.myVote != null ? 'disabled' : ''}>${esc(t)}${picked ? '<span class="tag">Your guess</span>' : ''}</button>`;
+    }).join('');
+  }
+
+  let status = '';
+  if (!revealed) {
+    const left = r.eligible - r.voted;
+    status = mine ? `<p class="sub">Keep a straight face. ${left} still guessing.</p>`
+      : r.myVote != null ? `<p class="sub">Locked in. Waiting for ${left} more.</p>`
+      : `<p class="sub">Tap the statement you think is the lie.</p>`;
+  }
+
+  let actions = '';
+  if (S.isHost && !revealed) actions = `<button id="reveal" class="ghost">Reveal now</button>`;
+  if (S.isHost && revealed) actions = `<button id="next">${r.index === r.total ? 'See final scores' : 'Next round'}</button>`;
+
+  app.innerHTML = `${head}${errBox()}${status}<div class="cards">${cards}</div>${actions}
+    <div class="panel gap"><p class="big">Scores</p>${scoreboard(revealed)}</div>
+    ${!S.isHost && revealed ? '<p class="sub">Waiting for the host to continue.</p>' : ''}`;
+
+  app.querySelectorAll('button.card').forEach(b => b.onclick = () => act('vote', { choice: +b.dataset.i }));
+  const rv = document.getElementById('reveal'); if (rv) rv.onclick = () => act('reveal');
+  const nx = document.getElementById('next'); if (nx) nx.onclick = () => act('next');
+}
+
+function renderFinal() {
+  const sorted = [...S.players].sort((a, b) => b.score - a.score);
+  const top = sorted[0].score;
+  const winners = sorted.filter(p => p.score === top).map(p => p.name);
+  app.innerHTML = `
+    <p class="progress">Game over</p>
+    <h1 style="font-size:clamp(34px,10vw,52px)">${winners.map(esc).join(' and ')} ${winners.length > 1 ? 'tie' : 'wins'}</h1>
+    <p class="sub">Best liar and best lie detector in one.</p>
+    ${errBox()}
+    <div class="panel"><p class="big">Final scores</p>${scoreboard(false)}</div>
+    ${S.isHost ? '<button id="again">Play again</button>' : '<p class="sub">Waiting for the host to start another game.</p>'}
+    <button class="ghost small gap" id="leave">Leave room</button>`;
+  const ag = document.getElementById('again'); if (ag) ag.onclick = () => act('again');
+  document.getElementById('leave').onclick = leave;
+}
+
+render();
+poll(true);
+setInterval(poll, 1500);
+</script>
+</body>
+</html>
