@@ -102,10 +102,12 @@ button.card:active:not(:disabled){box-shadow:0 2px 0 var(--ink)}
 .big{font-size:22px;font-weight:800;margin:0 0 6px}
 .winner{font-size:34px;font-weight:800;margin:4px 0 14px;line-height:1.05}
 
+#snd{position:fixed;z-index:9;top:max(10px,env(safe-area-inset-top));right:10px;width:auto;padding:6px 12px;font-size:13px;background:rgba(255,251,240,.92);box-shadow:0 3px 0 var(--ink)}
 @media (prefers-reduced-motion:reduce){.stamp{animation:none}button{transition:none}}
 </style>
 </head>
 <body>
+<button id="snd" aria-pressed="true">Sound on</button>
 <div id="app"></div>
 <div class="brand">Made by <b>Sahil Akhtar</b></div>
 
@@ -150,6 +152,7 @@ async function poll(force) {
   try {
     const s = await api(`/api/state?code=${session.code}&pid=${session.pid}`);
     const prevPhase = S && S.phase;
+    sfx.onState(S, s);
     S = s;
     if (prevPhase === 'lobby' && s.phase === 'writing') draft = { s: ['', '', ''], lie: null };
     const key = (s.phase === 'writing' && !s.submitted) ? 'writing-form' : `${s.phase}-${s.v}`;
@@ -158,6 +161,58 @@ async function poll(force) {
     if (e.status === 404) { error = 'That room is gone. Start a new one.'; leave(); }
   }
 }
+
+/* ---------- sound effects (synthesised with Web Audio, no files needed) ---------- */
+const sfx = (() => {
+  let ac, on = localStorage.getItem('ttl-mute') !== '1';
+  const ctx = () => { if (!ac) { const A = window.AudioContext || window.webkitAudioContext; if (!A) return null; ac = new A(); } if (ac.state === 'suspended') ac.resume(); return ac; };
+  function tone(f, at, dur, type = 'sine', vol = .14, to) {
+    const a = ctx(); if (!a || !on) return;
+    const o = a.createOscillator(), g = a.createGain(), t = a.currentTime + at;
+    o.type = type; o.frequency.setValueAtTime(f, t); if (to) o.frequency.exponentialRampToValueAtTime(to, t + dur);
+    g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + .012); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+    o.connect(g).connect(a.destination); o.start(t); o.stop(t + dur + .05);
+  }
+  const seq = (notes, step, dur, type, vol) => notes.forEach((n, i) => tone(n, i * step, dur, type, vol));
+  const S = {
+    tap: () => tone(520, 0, .07, 'triangle', .1),
+    lock: () => { tone(440, 0, .07, 'triangle', .13); tone(660, .07, .12, 'triangle', .13); },
+    join: () => { tone(660, 0, .08, 'sine', .12); tone(990, .08, .14, 'sine', .12); },
+    ready: () => tone(740, 0, .09, 'triangle', .08),
+    start: () => tone(250, 0, .4, 'sawtooth', .07, 900),
+    round: () => seq([523, 659, 784], .09, .16, 'triangle', .12),
+    drum: () => { for (let i = 0; i < 11; i++) tone(170, i * (.085 - i * .004), .07, 'sine', .22, 70); },
+    stamp: () => { tone(95, .9, .3, 'sine', .45, 38); tone(240, .9, .08, 'square', .12, 80); },
+    win: () => seq([523, 659, 784, 1047], .09, .2, 'triangle', .14),
+    lose: () => { tone(330, 0, .22, 'sawtooth', .09, 250); tone(262, .22, .4, 'sawtooth', .09, 120); },
+    sneaky: () => seq([392, 330, 392, 330, 392], .11, .12, 'square', .07),
+    final: () => { seq([523, 523, 523, 659, 784], .13, .22, 'triangle', .14); tone(1047, .7, .8, 'triangle', .14); }
+  };
+  const play = n => { try { S[n](); } catch (e) {} };
+  function onState(a, b) {
+    if (!a || a.code !== b.code) return;
+    if (b.phase === 'lobby' && b.players.length > a.players.length) return play('join');
+    if (a.phase === 'lobby' && b.phase === 'writing') return play('start');
+    if (b.phase === 'writing' && a.phase === 'writing' && b.players.filter(p => p.submitted).length > a.players.filter(p => p.submitted).length) return play('ready');
+    if (b.phase === 'voting' && (a.phase === 'writing' || a.phase === 'reveal')) return play('round');
+    if (b.phase === 'reveal' && a.phase === 'voting') {
+      play('drum'); play('stamp');
+      const r = b.round, meName = (b.players.find(p => p.id === b.you) || {}).name;
+      const gained = (r.gains || []).some(g => g.name === meName);
+      const after = r.presenterId === b.you ? (gained ? 'sneaky' : 'lose') : (r.myVote === r.lie ? 'win' : 'lose');
+      setTimeout(() => play(after), 1250);
+      return;
+    }
+    if (b.phase === 'final' && a.phase !== 'final') return play('final');
+  }
+  const btn = document.getElementById('snd');
+  const label = () => { btn.textContent = on ? 'Sound on' : 'Sound off'; btn.setAttribute('aria-pressed', on); };
+  btn.onclick = () => { on = !on; localStorage.setItem('ttl-mute', on ? '0' : '1'); label(); if (on) play('tap'); };
+  label();
+  document.addEventListener('pointerdown', ctx, { once: true });
+  document.addEventListener('click', e => { const b = e.target.closest('button'); if (b && b.id !== 'snd' && !b.classList.contains('card')) play('tap'); });
+  return { onState, lock: () => play('lock') };
+})();
 
 /* ---------- screens ---------- */
 function render() {
@@ -313,7 +368,7 @@ function renderRound() {
     <div class="panel gap"><p class="big">Scores</p>${scoreboard(revealed)}</div>
     ${!S.isHost && revealed ? '<p class="sub">Waiting for the host to continue.</p>' : ''}`;
 
-  app.querySelectorAll('button.card').forEach(b => b.onclick = () => act('vote', { choice: +b.dataset.i }));
+  app.querySelectorAll('button.card').forEach(b => b.onclick = () => { sfx.lock(); act('vote', { choice: +b.dataset.i }); });
   const rv = document.getElementById('reveal'); if (rv) rv.onclick = () => act('reveal');
   const nx = document.getElementById('next'); if (nx) nx.onclick = () => act('next');
 }
