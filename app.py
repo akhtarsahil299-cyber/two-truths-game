@@ -124,6 +124,8 @@ def public_state(room, pid):
         "you": pid,
         "isHost": room["host"] == pid,
         "submitted": pid in room["entries"],
+        "cn": room["cn"],
+        "chat": [{"name": m["name"], "text": m["text"], "me": m["pid"] == pid} for m in room["chat"][-40:]],
         "players": [
             {
                 "id": i,
@@ -160,13 +162,34 @@ def public_state(room, pid):
     return out
 
 
+def asset(name):
+    # files can sit in a "static" folder or right next to app.py
+    for folder in (os.path.join(BASE, "static"), BASE):
+        if os.path.exists(os.path.join(folder, name)):
+            return send_from_directory(folder, name)
+    return f"{name} is missing. Put it next to app.py or inside a folder named static.", 404
+
+
 @app.route("/")
 def index():
-    # index.html can sit in a "static" folder or right next to app.py
-    for folder in (os.path.join(BASE, "static"), BASE):
-        if os.path.exists(os.path.join(folder, "index.html")):
-            return send_from_directory(folder, "index.html")
-    return "index.html is missing. Put it next to app.py or inside a folder named static.", 404
+    return asset("index.html")
+
+
+@app.route("/manifest.webmanifest")
+def manifest():
+    return asset("manifest.webmanifest")
+
+
+@app.route("/sw.js")
+def service_worker():
+    resp = asset("sw.js")
+    resp.headers["Cache-Control"] = "no-cache"
+    return resp
+
+
+@app.route("/icon-<int:size>.png")
+def icon_file(size):
+    return asset(f"icon-{size}.png")
 
 
 @app.get("/api/state")
@@ -199,6 +222,8 @@ def action():
                 "current": 0,
                 "votes": {},
                 "gains": [],
+                "chat": [],
+                "cn": 0,
                 "v": 0,
                 "updated": time.time(),
             }
@@ -223,6 +248,20 @@ def action():
         pid = data.get("pid", "")
         get_player(room, pid)
         phase = room["phase"]
+
+        if kind == "chat":  # chat never bumps room["v"], so game screens are not redrawn
+            text = " ".join(str(data.get("text", "")).split())[:200]
+            if not text:
+                raise GameError("Type a message first.")
+            now = time.time()
+            me = room["players"][pid]
+            if now - me.get("last_chat", 0) < 0.6:
+                raise GameError("Slow down a little.")
+            me["last_chat"] = now
+            room["chat"] = (room["chat"] + [{"pid": pid, "name": me["name"], "text": text}])[-50:]
+            room["cn"] += 1
+            room["updated"] = now
+            return jsonify(ok=True)
 
         if kind == "start":
             require_host(room, pid)
