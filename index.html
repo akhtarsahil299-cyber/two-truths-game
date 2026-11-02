@@ -99,15 +99,20 @@ button.card:active:not(:disabled){box-shadow:0 2px 0 var(--ink)}
 .board li:last-child{border-bottom:none}
 .board .gain{color:var(--mint);margin-left:8px}
 .pill{display:inline-block;background:var(--ink);color:var(--paper);border-radius:999px;padding:3px 12px;font-size:14px;font-weight:600}
-.logo{margin:6px 0 14px;font-size:clamp(46px,14vw,68px);line-height:.9;font-weight:800;letter-spacing:-.03em;color:var(--paper)}
+.logo{margin:4px 0 10px;font-size:clamp(46px,14vw,68px);line-height:.9;font-weight:800;letter-spacing:-.03em;color:var(--paper)}
 .logo .hl{display:inline-block;background:var(--sun);color:var(--ink);padding:2px 12px 6px;border:3px solid var(--ink);border-radius:14px;box-shadow:0 6px 0 var(--ink);rotate:-2deg}
 .logo .l2{display:flex;align-items:center;gap:14px;margin-top:14px}
 .logo .amp{font-weight:600;color:#DCE3FF}
 .logo .lie{display:inline-block;background:var(--coral);color:#fff;padding:2px 16px 6px;border:3px solid var(--ink);border-radius:14px;box-shadow:0 6px 0 var(--ink);rotate:3deg;animation:slam .5s .15s cubic-bezier(.2,1.6,.4,1) both}
-.byline{display:inline-flex;align-items:center;gap:9px;margin:2px 0 14px;padding:5px 15px 5px 5px;border-radius:999px;background:rgba(255,255,255,.15);font-size:15px;font-weight:600;color:#fff}
+.byline{display:inline-flex;align-items:center;gap:6px;margin:0;padding:3px 11px 3px 3px;border-radius:999px;background:rgba(255,255,255,.15);font-size:13px;font-weight:600;color:#fff;white-space:nowrap}
 .byline b{color:var(--sun);font-weight:800}
-.byline .mono{width:28px;height:28px;border-radius:50%;background:var(--sun);color:var(--ink);border:2px solid var(--ink);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;letter-spacing:0}
+.byline .mono{width:20px;height:20px;border-radius:50%;background:var(--sun);color:var(--ink);border:2px solid var(--ink);display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;letter-spacing:0}
 @media (prefers-reduced-motion:reduce){.logo .lie{animation:none}}
+.brandrow{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0 0 10px}
+.lkbtn{display:inline-flex;align-items:center;gap:6px;padding:3px 11px 3px 3px;border-radius:999px;background:#0A66C2;color:#fff;font-weight:700;font-size:13px;text-decoration:none;border:2px solid var(--ink);box-shadow:0 2px 0 var(--ink);white-space:nowrap;transition:transform .1s}
+.lkbtn:active{transform:translateY(2px);box-shadow:0 1px 0 var(--ink)}
+.lkbtn:focus-visible{outline:3px solid var(--sun);outline-offset:3px}
+.lkbtn .lk{width:20px;height:20px;border-radius:5px;background:#fff;color:#0A66C2;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;letter-spacing:-.04em}
 .brand{text-align:center;color:#DCE3FF;font-size:14px;margin-top:26px}
 .brand b{color:var(--sun)}
 .progress{color:#DCE3FF;margin:0 0 4px;font-weight:600}
@@ -182,6 +187,11 @@ button.card:active:not(:disabled){box-shadow:0 2px 0 var(--ink)}
 
 <script>
 const app = document.getElementById('app');
+const LINKEDIN_URL = 'https://www.linkedin.com/in/sahil-akhtar-5b3123421/';   // paste your full LinkedIn profile link here, e.g. https://www.linkedin.com/in/your-name
+function linkedinBtn() {
+  if (!/^https:\/\/(www\.)?linkedin\.com\//i.test(LINKEDIN_URL)) return '';
+  return `<a class="lkbtn" href="${LINKEDIN_URL}" target="_blank" rel="noopener noreferrer" aria-label="Sahil Akhtar on LinkedIn (opens in a new tab)"><span class="lk" aria-hidden="true">in</span>LinkedIn</a>`;
+}
 let session = null;
 try { session = JSON.parse(localStorage.getItem('ttl-session') || 'null'); } catch (e) {}
 let S = null;                 // latest server state
@@ -371,7 +381,10 @@ function renderHome() {
   const prefill = new URLSearchParams(location.search).get('room') || '';
   app.innerHTML = `
     <h1 class="logo"><span class="hl">Two Truths</span><span class="l2"><span class="amp">&amp; a</span><span class="lie">LIE</span></span></h1>
-    <div class="byline"><span class="mono" aria-hidden="true">SA</span><span>Made by <b>Sahil Akhtar</b></span></div>
+    <div class="brandrow">
+      <div class="byline"><span class="mono" aria-hidden="true">SA</span><span>Made by <b>Sahil Akhtar</b></span></div>
+      ${linkedinBtn()}
+    </div>
     <p class="sub">The party game where your friends find out who is the best liar.</p>
     ${errBox()}
     <div class="panel">
