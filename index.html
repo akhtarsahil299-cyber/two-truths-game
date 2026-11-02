@@ -3,6 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#2F4CFF">
+<link rel="apple-touch-icon" href="/icon-192.png">
 <title>Two truths and a lie | Made by Sahil Akhtar</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -20,7 +23,7 @@ body{
   font-size:17px; line-height:1.4;
   padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0);
 }
-#app{max-width:520px;margin:0 auto;padding:28px 18px 60px}
+#app{max-width:520px;margin:0 auto;padding:60px 18px 90px}
 h1{font-size:clamp(40px,12vw,60px);line-height:.95;margin:8px 0 12px;color:var(--paper);font-weight:800;letter-spacing:-.02em}
 h2{font-size:26px;margin:0 0 6px;font-weight:800;color:var(--paper);letter-spacing:-.01em}
 .sub{color:#DCE3FF;margin:0 0 22px}
@@ -96,12 +99,71 @@ button.card:active:not(:disabled){box-shadow:0 2px 0 var(--ink)}
 .board li:last-child{border-bottom:none}
 .board .gain{color:var(--mint);margin-left:8px}
 .pill{display:inline-block;background:var(--ink);color:var(--paper);border-radius:999px;padding:3px 12px;font-size:14px;font-weight:600}
+.logo{margin:6px 0 14px;font-size:clamp(46px,14vw,68px);line-height:.9;font-weight:800;letter-spacing:-.03em;color:var(--paper)}
+.logo .hl{display:inline-block;background:var(--sun);color:var(--ink);padding:2px 12px 6px;border:3px solid var(--ink);border-radius:14px;box-shadow:0 6px 0 var(--ink);rotate:-2deg}
+.logo .l2{display:flex;align-items:center;gap:14px;margin-top:14px}
+.logo .amp{font-weight:600;color:#DCE3FF}
+.logo .lie{display:inline-block;background:var(--coral);color:#fff;padding:2px 16px 6px;border:3px solid var(--ink);border-radius:14px;box-shadow:0 6px 0 var(--ink);rotate:3deg;animation:slam .5s .15s cubic-bezier(.2,1.6,.4,1) both}
+.byline{display:inline-flex;align-items:center;gap:9px;margin:2px 0 14px;padding:5px 15px 5px 5px;border-radius:999px;background:rgba(255,255,255,.15);font-size:15px;font-weight:600;color:#fff}
+.byline b{color:var(--sun);font-weight:800}
+.byline .mono{width:28px;height:28px;border-radius:50%;background:var(--sun);color:var(--ink);border:2px solid var(--ink);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;letter-spacing:0}
+@media (prefers-reduced-motion:reduce){.logo .lie{animation:none}}
 .brand{text-align:center;color:#DCE3FF;font-size:14px;margin-top:26px}
 .brand b{color:var(--sun)}
 .progress{color:#DCE3FF;margin:0 0 4px;font-weight:600}
 .big{font-size:22px;font-weight:800;margin:0 0 6px}
 .winner{font-size:34px;font-weight:800;margin:4px 0 14px;line-height:1.05}
 
+
+.hidden{display:none!important}
+.steps{list-style:none;counter-reset:st;margin:8px 0 0;padding:0}
+.steps li{counter-increment:st;position:relative;padding:4px 0 12px 46px;font-size:16px}
+.steps li::before{content:counter(st);position:absolute;left:0;top:2px;width:34px;height:34px;border-radius:50%;background:var(--sun);border:2px solid var(--ink);font-weight:800;display:flex;align-items:center;justify-content:center}
+.steps li:nth-child(2)::before{background:#9BE8CC}.steps li:nth-child(3)::before{background:#FFB3C1}.steps li:nth-child(4)::before{background:#B9C4FF}
+.steps li:last-child{padding-bottom:2px}
+.wcards{display:flex;flex-direction:column;gap:16px;margin:6px 0 16px}
+.wcard{border:3px solid var(--ink);border-radius:20px;padding:14px 16px 12px;box-shadow:0 5px 0 var(--ink);animation:rise .4s both}
+.wcard.truth{background:#D8F7EA}.wcard.lie{background:#FFE0E6}
+.wcard:nth-child(1){transform:rotate(-1deg)}.wcard:nth-child(2){transform:rotate(.8deg);animation-delay:.08s}.wcard:nth-child(3){transform:rotate(-.6deg);animation-delay:.16s}
+.wtag{display:inline-block;font-weight:800;font-size:14px;padding:3px 12px;border-radius:999px;border:2px solid var(--ink);background:var(--mint);color:#fff}
+.wcard.lie .wtag{background:var(--coral)}
+.wcard input[type=text]{border:none;background:transparent;font-size:19px;font-weight:600;padding:10px 0 4px;border-bottom:2px dashed rgba(16,23,46,.3);border-radius:0}
+.wcard input[type=text]:focus{outline:none;border-bottom-color:var(--ink)}
+.whint{font-size:14px;color:var(--mute);margin-top:6px}
+.tip{background:rgba(255,255,255,.14);border-radius:14px;padding:10px 14px;color:#fff;font-size:15px;margin-bottom:14px}
+@keyframes rise{from{opacity:0;translate:0 14px}to{opacity:1;translate:0 0}}
+#chatbtn{position:fixed;z-index:8;right:12px;bottom:max(14px,env(safe-area-inset-bottom));width:auto;padding:10px 16px;background:var(--paper)}
+#badge{display:inline-block;min-width:22px;margin-left:8px;padding:0 6px;border-radius:999px;background:var(--coral);color:#fff;font-size:13px;line-height:22px}
+#badge:empty{display:none}
+#chat{position:fixed;z-index:9;right:10px;bottom:0;width:min(370px,calc(100% - 20px));height:min(62vh,430px);background:var(--paper);border:3px solid var(--ink);border-bottom:none;border-radius:20px 20px 0 0;display:flex;flex-direction:column;box-shadow:0 -4px 0 rgba(16,23,46,.25)}
+#chat header{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;font-weight:800;border-bottom:2px dashed #D9D3BE}
+#msgs{flex:1;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:8px;touch-action:pan-y}
+.m{max-width:85%;align-self:flex-start;background:#fff;border:2px solid var(--ink);border-radius:14px 14px 14px 4px;padding:6px 10px;font-size:16px;word-break:break-word}
+.m b{display:block;font-size:12px;color:var(--mute)}
+.m.me{align-self:flex-end;background:var(--sun);border-radius:14px 14px 4px 14px}.m.me b{display:none}
+.quick{display:flex;gap:6px;padding:6px 12px 0}.quick button{width:auto;padding:4px 10px;font-size:18px;box-shadow:0 2px 0 var(--ink);background:#fff}
+.cin{display:flex;gap:8px;padding:8px 12px calc(10px + env(safe-area-inset-bottom))}.cin input{flex:1}.cin button{width:auto}
+@media (prefers-reduced-motion:reduce){.wcard{animation:none}}
+
+.demo{padding:0;overflow:hidden}
+.demohead{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 14px;background:var(--ink);color:var(--paper);font-weight:800;font-size:15px}
+.live{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--mint);margin-right:8px;animation:pulse 1.4s infinite}
+#cap{font-weight:600;font-size:13px;color:var(--sun);text-align:right}
+.demobody{height:330px;overflow:hidden;padding:12px;display:flex;flex-direction:column;gap:8px;background:#F3EFE0}
+.dm{display:flex;gap:8px;align-items:flex-end;animation:pop .3s both}
+.av{width:28px;height:28px;border-radius:50%;border:2px solid var(--ink);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex:none}
+.bub{position:relative;background:#fff;border:2px solid var(--ink);border-radius:14px 14px 14px 4px;padding:7px 11px;font-size:15px;transition:background .3s}
+.bub small{font-weight:800;margin-right:6px;color:var(--mute)}
+.bub.dcard{background:var(--paper)}.bub.dcard.lie{background:#FFE0E6}
+.dstamp{position:absolute;right:-4px;top:-13px;rotate:8deg;background:var(--coral);color:#fff;border:2px solid var(--ink);border-radius:8px;padding:0 9px;font-weight:800;font-size:15px;animation:slam .35s cubic-bezier(.2,1.6,.4,1) both}
+.dsc{align-self:center;background:var(--mint);color:#fff;border:2px solid var(--ink);border-radius:999px;padding:3px 14px;font-weight:800;font-size:14px;animation:pop .3s both}
+.tdots{display:inline-flex;gap:4px;padding:10px 12px}.tdots i{width:7px;height:7px;border-radius:50%;background:var(--mute);animation:blink 1s infinite}
+.tdots i:nth-child(2){animation-delay:.15s}.tdots i:nth-child(3){animation-delay:.3s}
+@keyframes pop{from{opacity:0;transform:translateY(10px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes slam{from{scale:2.6;opacity:0}to{scale:1;opacity:1}}
+@keyframes blink{0%,80%,100%{opacity:.25}40%{opacity:1}}
+@keyframes pulse{50%{opacity:.35}}
+@media (prefers-reduced-motion:reduce){.dm,.dsc,.dstamp,.live,.tdots i{animation:none}}
 #snd{position:fixed;z-index:9;top:max(10px,env(safe-area-inset-top));right:10px;width:auto;padding:6px 12px;font-size:13px;background:rgba(255,251,240,.92);box-shadow:0 3px 0 var(--ink)}
 @media (prefers-reduced-motion:reduce){.stamp{animation:none}button{transition:none}}
 </style>
@@ -109,6 +171,13 @@ button.card:active:not(:disabled){box-shadow:0 2px 0 var(--ink)}
 <body>
 <button id="snd" aria-pressed="true">Sound on</button>
 <div id="app"></div>
+<button id="chatbtn" class="hidden" aria-label="Open chat">Chat<span id="badge"></span></button>
+<div id="chat" class="hidden" role="dialog" aria-label="Room chat">
+  <header>Room chat <button class="small ghost" id="cclose" aria-label="Close chat">Close</button></header>
+  <div id="msgs" aria-live="polite"></div>
+  <div class="quick"><button data-e="😂" aria-label="laugh">😂</button><button data-e="😱" aria-label="shock">😱</button><button data-e="🤔" aria-label="think">🤔</button><button data-e="👏" aria-label="clap">👏</button><button data-e="🔥" aria-label="fire">🔥</button></div>
+  <div class="cin"><input type="text" id="cin" maxlength="200" placeholder="Say something..." autocomplete="off" aria-label="Chat message"><button id="csend">Send</button></div>
+</div>
 <div class="brand">Made by <b>Sahil Akhtar</b></div>
 
 <script>
@@ -143,6 +212,7 @@ async function act(type, extra = {}) {
 
 function saveSession(s) { session = s; localStorage.setItem('ttl-session', JSON.stringify(s)); }
 function leave() {
+  chatSync(null);
   session = null; S = null; renderedKey = null; draft = { s: ['', '', ''], lie: null };
   localStorage.removeItem('ttl-session'); render();
 }
@@ -154,6 +224,7 @@ async function poll(force) {
     const prevPhase = S && S.phase;
     sfx.onState(S, s);
     S = s;
+    chatSync(s);
     if (prevPhase === 'lobby' && s.phase === 'writing') draft = { s: ['', '', ''], lie: null };
     const key = (s.phase === 'writing' && !s.submitted) ? 'writing-form' : `${s.phase}-${s.v}`;
     if (force || key !== renderedKey) { renderedKey = key; render(); }
@@ -211,8 +282,34 @@ const sfx = (() => {
   label();
   document.addEventListener('pointerdown', ctx, { once: true });
   document.addEventListener('click', e => { const b = e.target.closest('button'); if (b && b.id !== 'snd' && !b.classList.contains('card')) play('tap'); });
-  return { onState, lock: () => play('lock') };
+  return { onState, lock: () => play('lock'), ping: () => play('ready') };
 })();
+
+/* ---------- chat ---------- */
+let cn = -1, unread = 0, chatOpen = false;
+const $c = id => document.getElementById(id);
+function setBadge() { $c('badge').textContent = unread ? unread : ''; }
+function chatSync(s) {
+  if (!s) { $c('chatbtn').classList.add('hidden'); $c('chat').classList.add('hidden'); chatOpen = false; cn = -1; unread = 0; setBadge(); return; }
+  if (!chatOpen) $c('chatbtn').classList.remove('hidden');
+  if (s.cn === cn) return;
+  const first = cn === -1; cn = s.cn;
+  const box = $c('msgs'); box.textContent = '';
+  s.chat.forEach(m => { const d = document.createElement('div'), n = document.createElement('b'), t = document.createElement('span'); d.className = 'm' + (m.me ? ' me' : ''); n.textContent = m.name; t.textContent = m.text; d.append(n, t); box.append(d); });
+  box.scrollTop = box.scrollHeight;
+  const last = s.chat[s.chat.length - 1];
+  if (!first && last && !last.me && !chatOpen) { unread++; setBadge(); sfx.ping(); }
+}
+async function sendChat(text) {
+  text = (text || '').trim(); if (!text || !session) return;
+  try { await api('/api/action', { type: 'chat', code: session.code, pid: session.pid, text }); } catch (e) {}
+  $c('cin').value = ''; poll(false);
+}
+$c('chatbtn').onclick = () => { chatOpen = true; unread = 0; setBadge(); $c('chat').classList.remove('hidden'); $c('chatbtn').classList.add('hidden'); $c('msgs').scrollTop = 1e6; $c('cin').focus(); };
+$c('cclose').onclick = () => { chatOpen = false; $c('chat').classList.add('hidden'); $c('chatbtn').classList.remove('hidden'); };
+$c('csend').onclick = () => sendChat($c('cin').value);
+$c('cin').onkeydown = e => { if (e.key === 'Enter') sendChat($c('cin').value); };
+document.querySelectorAll('.quick button').forEach(b => b.onclick = () => sendChat(b.dataset.e));
 
 /* ---------- screens ---------- */
 function render() {
@@ -223,11 +320,59 @@ function render() {
 
 function errBox() { return error ? `<div class="err" role="alert">${esc(error)}</div>` : ''; }
 
+/* ---------- animated chat demo on the start page ---------- */
+function runDemo() {
+  const box = document.getElementById('demo'), cap = document.getElementById('cap');
+  if (!box) return;
+  const rm = matchMedia('(prefers-reduced-motion:reduce)').matches;
+  const alive = () => document.body.contains(box);
+  const go = async ms => { await new Promise(r => setTimeout(r, rm ? 0 : ms)); if (!alive()) throw 0; };
+  const who = { R: ['Sana', '#FFD43B'], A: ['Aman', '#9BE8CC'], Z: ['Nida', '#FFB3C1'] };
+  const row = (k, inner) => {
+    const d = document.createElement('div'), av = document.createElement('span');
+    d.className = 'dm'; av.className = 'av'; av.style.background = who[k][1]; av.textContent = who[k][0][0]; av.title = who[k][0];
+    d.append(av, inner); box.append(d); box.scrollTop = box.scrollHeight; return d;
+  };
+  const bubble = (text, tag, cls = '') => {
+    const b = document.createElement('div'); b.className = 'bub ' + cls;
+    if (tag) { const t = document.createElement('small'); t.textContent = tag; b.append(t); }
+    b.append(document.createTextNode(text)); return b;
+  };
+  const typing = async (k, ms = 750) => {
+    const t = document.createElement('div'); t.className = 'bub tdots'; t.innerHTML = '<i></i><i></i><i></i>';
+    const r = row(k, t); await go(ms); r.remove();
+  };
+  (async () => {
+    try {
+      do {
+        box.textContent = '';
+        cap.textContent = '1. Write two truths and one lie';
+        await go(700);
+        const cards = [];
+        for (const [i, text] of ['I have met a famous cricketer', 'I can solve a Rubik\u2019s cube in a minute', 'I have never tasted pizza'].entries()) {
+          await typing('R'); const b = bubble(text, '#' + (i + 1), 'dcard'); row('R', b); cards.push(b); await go(450);
+        }
+        cap.textContent = '2. Friends guess which one is fake';
+        await go(500);
+        await typing('A'); row('A', bubble('I think #2 is the lie')); await go(700);
+        await typing('Z'); row('Z', bubble('Easy, it is #3!')); await go(1100);
+        cap.textContent = '3. The lie is revealed and points are won';
+        cards[2].classList.add('lie');
+        const st = document.createElement('span'); st.className = 'dstamp'; st.textContent = 'LIE'; cards[2].append(st);
+        await go(900);
+        const sc = document.createElement('div'); sc.className = 'dsc'; sc.textContent = 'Nida +100   Sana +100'; box.append(sc); box.scrollTop = box.scrollHeight;
+        await go(3800);
+      } while (!rm);
+    } catch (e) { /* page changed, stop */ }
+  })();
+}
+
 function renderHome() {
   const prefill = new URLSearchParams(location.search).get('room') || '';
   app.innerHTML = `
-    <h1>Two truths and a lie</h1>
-    <p class="sub">Write three things about yourself. Your friends guess which one is fake.</p>
+    <h1 class="logo"><span class="hl">Two Truths</span><span class="l2"><span class="amp">&amp; a</span><span class="lie">LIE</span></span></h1>
+    <div class="byline"><span class="mono" aria-hidden="true">SA</span><span>Made by <b>Sahil Akhtar</b></span></div>
+    <p class="sub">The party game where your friends find out who is the best liar.</p>
     ${errBox()}
     <div class="panel">
       <label for="name">Your name</label>
@@ -237,6 +382,19 @@ function renderHome() {
       <label for="code">Room code</label>
       <input id="code" type="text" maxlength="4" autocomplete="off" autocapitalize="characters" placeholder="ABCD" value="${esc(prefill.toUpperCase())}">
       <button class="gap ghost" id="join">Join room</button>
+    </div>
+    <div class="panel demo" aria-hidden="true">
+      <div class="demohead"><span><span class="live"></span>Sana’s room</span><span id="cap"></span></div>
+      <div class="demobody" id="demo"></div>
+    </div>
+    <div class="panel">
+      <p class="big">How to play</p>
+      <ol class="steps">
+        <li><b>Gather friends.</b> One person starts a room. Everyone else joins with the 4-letter code. You need 3 to 12 players.</li>
+        <li><b>Write 3 cards.</b> Two things that are true about you and one believable lie.</li>
+        <li><b>Spot the lie.</b> One by one, a player's cards appear. Everyone else taps the card they think is fake.</li>
+        <li><b>Win points.</b> Find the lie and get +100. Fool a friend and get +100 for each one you fool. Most points wins.</li>
+      </ol>
     </div>`;
   const name = document.getElementById('name');
   name.value = localStorage.getItem('ttl-name') || '';
@@ -252,6 +410,7 @@ function renderHome() {
   };
   document.getElementById('create').onclick = () => go('create');
   document.getElementById('join').onclick = () => go('join');
+  runDemo();
 }
 
 function renderLobby() {
@@ -297,24 +456,20 @@ function renderWriting() {
     const b = document.getElementById('begin'); if (b) b.onclick = () => act('begin');
     return;
   }
-  const rows = [0, 1, 2].map(i => `
-    <div class="row ${draft.lie === i ? 'islie' : ''}" data-row="${i}">
-      <input type="text" maxlength="120" data-i="${i}" autocomplete="off"
-        placeholder="${['Something true about you', 'Another true thing', 'Now the fake one'][i]}" value="${esc(draft.s[i])}" aria-label="Statement ${i + 1}">
-      <label class="lie-pick"><input type="radio" name="lie" value="${i}" ${draft.lie === i ? 'checked' : ''}> This one is the lie</label>
-    </div>`).join('');
+  const F = [['truth', 'Truth #1', 'Something real, like "I have been on a plane 20 times"'], ['truth', 'Truth #2', 'Another real one. Surprising is better.'], ['lie', 'Your lie', 'Make it sound just as believable as the truths.']];
+  const rows = F.map(([cls, title, hint], i) => `
+    <div class="wcard ${cls}"><span class="wtag">${title}</span>
+      <input type="text" maxlength="120" data-i="${i}" autocomplete="off" placeholder="Type it here..." value="${esc(draft.s[i])}" aria-label="${title}">
+      <div class="whint">${hint}</div></div>`).join('');
   app.innerHTML = `
-    <h2>Write your three</h2>
-    <p class="sub">Two true, one lie. Make the lie believable. Your friends see the cards in random order.</p>
+    <h2>Write your three cards</h2>
+    <p class="sub">Two truths and one lie. Friends see them mixed up, so nobody can guess by position.</p>
     ${errBox()}
-    <div class="panel"><div class="write">${rows}</div></div>
+    <div class="tip">Tip: the best lies sound boring and the best truths sound wild.</div>
+    <div class="wcards">${rows}</div>
     <button id="submit">Lock in my cards</button>`;
   app.querySelectorAll('input[type=text]').forEach(inp => inp.oninput = () => { draft.s[+inp.dataset.i] = inp.value; });
-  app.querySelectorAll('input[type=radio]').forEach(r => r.onchange = () => {
-    draft.lie = +r.value;
-    app.querySelectorAll('.row').forEach(row => row.classList.toggle('islie', +row.dataset.row === draft.lie));
-  });
-  document.getElementById('submit').onclick = () => act('submit', { statements: draft.s, lie: draft.lie });
+  document.getElementById('submit').onclick = () => act('submit', { statements: draft.s, lie: 2 });
 }
 
 function scoreboard(withGains) {
@@ -389,6 +544,7 @@ function renderFinal() {
   document.getElementById('leave').onclick = leave;
 }
 
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
 render();
 poll(true);
 setInterval(poll, 1500);
