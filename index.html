@@ -177,6 +177,11 @@ button.card:active:not(:disabled){box-shadow:0 2px 0 var(--ink)}
 .seg{display:flex;gap:8px;margin:6px 0 4px}
 .seg button{flex:1;padding:10px 6px;background:var(--paper);box-shadow:0 3px 0 var(--ink)}
 .seg button.on{background:var(--sun)}
+.presets{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:6px 0 14px}
+.preset{display:flex;flex-direction:column;align-items:center;gap:3px;width:100%;padding:10px 4px;font-size:15px;line-height:1.15;background:var(--paper);box-shadow:0 3px 0 var(--ink)}
+.preset span{font-size:12px;font-weight:600;color:var(--mute)}
+.preset.on{background:var(--sun)}.preset.on span{color:var(--ink)}
+.sumline{margin-top:12px;padding:9px 12px;border-radius:12px;background:#F3EFE0;font-weight:700;font-size:15px}
 .hint2{color:var(--mute);font-size:14px;margin:4px 0 14px}
 #snd{position:fixed;z-index:9;top:max(10px,env(safe-area-inset-top));right:10px;width:auto;padding:6px 12px;font-size:13px;background:rgba(255,251,240,.92);box-shadow:0 3px 0 var(--ink)}
 @media (prefers-reduced-motion:reduce){.stamp{animation:none}button{transition:none}}
@@ -491,13 +496,34 @@ function renderHome() {
   runDemo();
 }
 
+/* host setup: shows the choice instantly, then asks the server to save it */
+async function setSetup(timed, rounds) {
+  if (S.timed === timed && S.rounds === rounds) { if (error) { error = ''; renderedKey = null; render(); } return; }
+  error = ''; S.timed = timed; S.rounds = rounds; renderedKey = null; render();
+  try { await api('/api/action', { type: 'settings', code: session.code, pid: session.pid, timed, rounds }); }
+  catch (e) { error = e.message === 'Unknown action.' ? 'Your game server is out of date. Upload the latest app.py to GitHub and let Render redeploy.' : e.message; }
+  await poll(true);
+}
+
 function renderLobby() {
   const link = `${location.origin}${location.pathname}?room=${S.code}`;
   const enough = S.players.length >= 3;
   const plural = n => n + ' round' + (n > 1 ? 's' : '');
-  const settings = S.isHost ? `
+  const mins = S.timed ? Math.ceil(S.rounds * (90 + S.players.length * 37) / 60) : 0;
+  const summary = `${S.timed ? 'Timed game' : 'No timer'} &middot; ${plural(S.rounds)}${S.timed ? ' &middot; about ' + mins + ' min' : ''}`;
+  const on = (t, r) => S.timed === t && S.rounds === r ? 'on' : '';
+  const settings = S.timed === undefined ? (S.isHost ? `
+    <div class="panel"><p class="big">Game settings</p>
+      <p class="err" style="margin:0">Your game server is out of date, so the timer and round options can't work. Upload the latest <b>app.py</b> to GitHub and let Render redeploy.</p>
+    </div>` : '') : S.isHost ? `
     <div class="panel">
       <p class="big">Game settings</p>
+      <label>Quick pick</label>
+      <div class="presets">
+        <button class="preset ${on(false, 1)}" data-p="0,1" aria-pressed="${on(false, 1) === 'on'}"><b>Relaxed</b><span>No timer<br>1 round</span></button>
+        <button class="preset ${on(true, 2)}" data-p="1,2" aria-pressed="${on(true, 2) === 'on'}"><b>Party</b><span>Timed<br>2 rounds</span></button>
+        <button class="preset ${on(true, 5)}" data-p="1,5" aria-pressed="${on(true, 5) === 'on'}"><b>Marathon</b><span>Timed<br>5 rounds</span></button>
+      </div>
       <label>Timer</label>
       <div class="seg" role="group" aria-label="Timer">
         <button data-t="1" class="${S.timed ? 'on' : ''}" aria-pressed="${S.timed}">Timed</button>
@@ -507,11 +533,12 @@ function renderLobby() {
       <label>Rounds</label>
       <div class="seg" role="group" aria-label="Number of rounds">${[1, 2, 3, 5].map(n => `<button data-r="${n}" class="${S.rounds === n ? 'on' : ''}" aria-pressed="${S.rounds === n}">${n}</button>`).join('')}</div>
       <p class="hint2" style="margin-bottom:0">Each round, everyone writes new cards and gets a turn.</p>
+      <div class="sumline" aria-live="polite">${summary}</div>
     </div>` : `
     <div class="panel">
       <p class="big">Game settings</p>
-      <p style="margin:0 0 4px;font-weight:600">${S.timed ? 'Timed game' : 'No timer'} &middot; ${plural(S.rounds)}</p>
-      <p class="hint2" style="margin-bottom:0">The host chooses these.</p>
+      <div class="sumline" style="margin-top:0">${summary}</div>
+      <p class="hint2" style="margin:8px 0 0">The host chooses these.</p>
     </div>`;
   app.innerHTML = `
     <h2>Waiting for friends</h2>
@@ -535,8 +562,9 @@ function renderLobby() {
     try { await navigator.clipboard.writeText(link); e.target.textContent = 'Link copied'; }
     catch { e.target.textContent = 'Copy it from above'; }
   };
-  app.querySelectorAll('[data-t]').forEach(b => b.onclick = () => act('settings', { timed: b.dataset.t === '1', rounds: S.rounds }));
-  app.querySelectorAll('[data-r]').forEach(b => b.onclick = () => act('settings', { timed: S.timed, rounds: +b.dataset.r }));
+  app.querySelectorAll('[data-t]').forEach(b => b.onclick = () => setSetup(b.dataset.t === '1', S.rounds));
+  app.querySelectorAll('[data-r]').forEach(b => b.onclick = () => setSetup(S.timed, +b.dataset.r));
+  app.querySelectorAll('[data-p]').forEach(b => b.onclick = () => { const [t, r] = b.dataset.p.split(','); setSetup(t === '1', +r); });
   const st = document.getElementById('start'); if (st) st.onclick = () => act('start');
   document.getElementById('leave').onclick = leave;
 }
