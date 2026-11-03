@@ -20,7 +20,8 @@ MAX_PLAYERS = 12
 MIN_PLAYERS = 3
 POINTS = 100
 MAX_LEN = 120
-WRITE_T, VOTE_T, REVEAL_T = 90, 25, 12   # seconds, used only in timed games
+WRITE_T, VOTE_T, REVEAL_T = 90, 25, 12   # default seconds, used only in timed games
+WRITE_RANGE, VOTE_RANGE = (30, 180), (10, 60)   # the host can pick any value inside these
 AWAY = 12                                # host unseen this long => host passes to a friend
 ROUND_CHOICES = (1, 2, 3, 5)
 
@@ -100,11 +101,11 @@ def advance(room):
     room["votes"], room["gains"] = {}, []
     if room["current"] < len(room["queue"]):
         room["phase"] = "voting"
-        set_deadline(room, VOTE_T)
+        set_deadline(room, room["vt"])
     elif room["gr"] < room["rounds"]:
         room["gr"] += 1
         room.update(entries={}, queue=[], current=0, phase="writing")
-        set_deadline(room, WRITE_T)
+        set_deadline(room, room["wt"])
     else:
         room["phase"] = "final"
         room["deadline"] = None
@@ -147,7 +148,7 @@ def begin_voting(room):
     room["votes"] = {}
     room["gains"] = []
     room["phase"] = "voting"
-    set_deadline(room, VOTE_T)
+    set_deadline(room, room["vt"])
 
 
 def do_reveal(room):
@@ -183,6 +184,8 @@ def public_state(room, pid):
         "submitted": pid in room["entries"],
         "timed": room["timed"],
         "rounds": room["rounds"],
+        "wt": room["wt"],
+        "vt": room["vt"],
         "gr": room["gr"],
         "span": room["span"],
         "left": max(0, room["deadline"] - time.time()) if room["deadline"] else None,
@@ -290,6 +293,8 @@ def action():
                 "cn": 0,
                 "timed": False,
                 "rounds": 1,
+                "wt": WRITE_T,
+                "vt": VOTE_T,
                 "gr": 1,
                 "deadline": None,
                 "span": 0,
@@ -343,7 +348,7 @@ def action():
             room["phase"] = "writing"
             room["entries"] = {}
             room["gr"] = 1
-            set_deadline(room, WRITE_T)
+            set_deadline(room, room["wt"])
 
         elif kind == "submit":
             if phase != "writing":
@@ -419,6 +424,10 @@ def action():
             room["timed"] = bool(data.get("timed"))
             if data.get("rounds") in ROUND_CHOICES:
                 room["rounds"] = data["rounds"]
+            for key, (lo, hi) in (("wt", WRITE_RANGE), ("vt", VOTE_RANGE)):
+                v = data.get(key)
+                if isinstance(v, int) and not isinstance(v, bool) and lo <= v <= hi:
+                    room[key] = v
 
         else:
             raise GameError("Unknown action.")
