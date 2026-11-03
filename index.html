@@ -177,6 +177,24 @@ button.card:active:not(:disabled){box-shadow:0 2px 0 var(--ink)}
 .seg{display:flex;gap:8px;margin:6px 0 4px}
 .seg button{flex:1;padding:10px 6px;background:var(--paper);box-shadow:0 3px 0 var(--ink)}
 .seg button.on{background:var(--sun)}
+#intro{position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;overflow:hidden;animation:iover 2s both}
+#intro .ibg{position:absolute;inset:-30px;background:#06201d url(/guess-character.webp) center/cover no-repeat;filter:blur(22px) brightness(.5) saturate(1.2)}
+#intro .icard{container-type:size;position:relative;height:min(84vh,780px);aspect-ratio:640/1422;max-width:92vw;overflow:hidden;border-radius:28px;border:4px solid #10172E;
+  box-shadow:0 0 0 3px rgba(184,255,61,.55),0 24px 60px rgba(0,0,0,.55),0 0 70px rgba(61,255,160,.28);
+  animation:icard .75s cubic-bezier(.2,1.15,.3,1) .05s both,ifloat 1.4s ease-in-out .8s infinite}
+#intro .icard img{width:100%;height:100%;object-fit:cover;object-position:center 30%;display:block}
+#intro .icard::after{content:"";position:absolute;inset:0;background:#fff;opacity:0;animation:iflash .35s ease-out .6s}
+#intro .isticker{position:absolute;left:50%;bottom:9%;translate:-50% 0;white-space:nowrap;background:var(--sun);color:var(--ink);font-weight:800;
+  font-size:clamp(22px,6vw,30px);font-size:9cqw;max-width:94%;padding:.2em .7em .32em;border:3px solid var(--ink);border-radius:16px;box-shadow:0 6px 0 var(--ink);rotate:-4deg;
+  animation:islam .45s cubic-bezier(.2,1.6,.4,1) .6s both}
+#intro .icap{position:absolute;left:0;right:0;bottom:max(1.6vh,8px);margin:0;text-align:center;color:#EAF0FF;font-weight:600;font-size:15px;animation:icap .4s ease .8s both}
+@keyframes iover{0%{opacity:0}14%{opacity:1}84%{opacity:1;transform:none}100%{opacity:0;transform:scale(1.04)}}
+@keyframes icard{from{opacity:0;transform:translateY(16vh) scale(.88)}to{opacity:1;transform:none}}
+@keyframes ifloat{50%{translate:0 -6px}}
+@keyframes iflash{from{opacity:.55}to{opacity:0}}
+@keyframes islam{from{scale:2.4;opacity:0;rotate:-14deg}to{scale:1;opacity:1;rotate:-4deg}}
+@keyframes icap{from{opacity:0;translate:0 8px}to{opacity:1;translate:0 0}}
+@media (prefers-reduced-motion:reduce){#intro .icard,#intro .icard::after,#intro .isticker,#intro .icap{animation:none!important}}
 input[type=range]{width:100%;height:32px;margin:0 0 8px;accent-color:var(--blue)}
 .presets{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:6px 0 14px}
 .preset{display:flex;flex-direction:column;align-items:center;gap:3px;width:100%;padding:10px 4px;font-size:15px;line-height:1.15;background:var(--paper);box-shadow:0 3px 0 var(--ink)}
@@ -247,6 +265,7 @@ async function poll(force) {
   try {
     const s = await api(`/api/state?code=${session.code}&pid=${session.pid}`);
     const prevPhase = S && S.phase;
+    if (S && S.phase === 'writing' && s.phase === 'voting') playIntro();
     sfx.onState(S, s);
     S = s;
     tRecv = performance.now();
@@ -315,6 +334,7 @@ const sfx = (() => {
     tick: () => tone(880, 0, .05, 'square', .05),
     start: () => tone(250, 0, .4, 'sawtooth', .07, 900),
     round: () => seq([523, 659, 784], .09, .16, 'triangle', .12),
+    intro: () => { tone(160, 0, .5, 'sawtooth', .05, 820); tone(100, .62, .3, 'sine', .4, 40); tone(784, .62, .12, 'square', .06); tone(1047, .74, .3, 'square', .06); },
     drum: () => { for (let i = 0; i < 11; i++) tone(170, i * (.085 - i * .004), .07, 'sine', .22, 70); },
     stamp: () => { tone(95, .9, .3, 'sine', .45, 38); tone(240, .9, .08, 'square', .12, 80); },
     win: () => seq([523, 659, 784, 1047], .09, .2, 'triangle', .14),
@@ -328,7 +348,8 @@ const sfx = (() => {
     if (b.phase === 'lobby' && b.players.length > a.players.length) return play('join');
     if ((a.phase === 'lobby' || a.phase === 'reveal') && b.phase === 'writing') return play('start');
     if (b.phase === 'writing' && a.phase === 'writing' && b.players.filter(p => p.submitted).length > a.players.filter(p => p.submitted).length) return play('ready');
-    if (b.phase === 'voting' && (a.phase === 'writing' || a.phase === 'reveal')) return play('round');
+    if (b.phase === 'voting' && a.phase === 'writing') return play('intro');
+    if (b.phase === 'voting' && a.phase === 'reveal') return play('round');
     if (b.phase === 'reveal' && a.phase === 'voting') {
       play('drum'); play('stamp');
       const r = b.round, meName = (b.players.find(p => p.id === b.you) || {}).name;
@@ -349,6 +370,16 @@ const sfx = (() => {
   document.addEventListener('click', e => { const b = e.target.closest('button'); if (b && b.id !== 'snd' && !b.classList.contains('card')) play('tap'); });
   return { onState, lock: () => play('lock'), ping: () => play('ready'), tick: () => play('tick'), music: music.want };
 })();
+
+/* ---------- "Guess the lie!" intro (about 2 seconds) ---------- */
+const introImg = new Image(); let introOK = false;
+introImg.onload = () => { introOK = true; }; introImg.src = '/guess-character.webp';   // preload; skipped quietly if the file is missing
+function playIntro() {
+  if (!introOK || document.getElementById('intro')) return;
+  const d = document.createElement('div'); d.id = 'intro'; d.setAttribute('role', 'status'); d.setAttribute('aria-label', 'Guess the lie');
+  d.innerHTML = '<div class="ibg"></div><div class="icard"><img src="/guess-character.webp" alt=""><div class="isticker" aria-hidden="true">Guess the lie!</div></div><p class="icap">Everyone\u2019s cards are in</p>';
+  document.body.append(d); setTimeout(() => d.remove(), 2100);
+}
 
 /* ---------- chat ---------- */
 let cn = -1, unread = 0, chatOpen = false;
