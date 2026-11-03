@@ -148,7 +148,7 @@ def begin_voting(room):
     room["votes"] = {}
     room["gains"] = []
     room["phase"] = "voting"
-    set_deadline(room, room["vt"])
+    set_deadline(room, room["vt"] + 2)  # +2s so the "Guess the lie!" intro does not eat guessing time
 
 
 def do_reveal(room):
@@ -250,6 +250,11 @@ def service_worker():
     resp = asset("sw.js")
     resp.headers["Cache-Control"] = "no-cache"
     return resp
+
+
+@app.route("/guess-character.webp")
+def guess_character():
+    return asset("guess-character.webp")
 
 
 @app.route("/icon-<int:size>.png")
