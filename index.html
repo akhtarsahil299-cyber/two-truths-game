@@ -177,6 +177,7 @@ button.card:active:not(:disabled){box-shadow:0 2px 0 var(--ink)}
 .seg{display:flex;gap:8px;margin:6px 0 4px}
 .seg button{flex:1;padding:10px 6px;background:var(--paper);box-shadow:0 3px 0 var(--ink)}
 .seg button.on{background:var(--sun)}
+input[type=range]{width:100%;height:32px;margin:0 0 8px;accent-color:var(--blue)}
 .presets{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:6px 0 14px}
 .preset{display:flex;flex-direction:column;align-items:center;gap:3px;width:100%;padding:10px 4px;font-size:15px;line-height:1.15;background:var(--paper);box-shadow:0 3px 0 var(--ink)}
 .preset span{font-size:12px;font-weight:600;color:var(--mute)}
@@ -497,10 +498,11 @@ function renderHome() {
 }
 
 /* host setup: shows the choice instantly, then asks the server to save it */
-async function setSetup(timed, rounds) {
-  if (S.timed === timed && S.rounds === rounds) { if (error) { error = ''; renderedKey = null; render(); } return; }
-  error = ''; S.timed = timed; S.rounds = rounds; renderedKey = null; render();
-  try { await api('/api/action', { type: 'settings', code: session.code, pid: session.pid, timed, rounds }); }
+async function setSetup(patch) {
+  const next = { timed: S.timed, rounds: S.rounds, wt: S.wt, vt: S.vt, ...patch };
+  if (Object.keys(next).every(k => S[k] === next[k])) { if (error) { error = ''; renderedKey = null; render(); } return; }
+  error = ''; Object.assign(S, next); renderedKey = null; render();
+  try { await api('/api/action', { type: 'settings', code: session.code, pid: session.pid, ...next }); }
   catch (e) { error = e.message === 'Unknown action.' ? 'Your game server is out of date. Upload the latest app.py to GitHub and let Render redeploy.' : e.message; }
   await poll(true);
 }
@@ -509,10 +511,10 @@ function renderLobby() {
   const link = `${location.origin}${location.pathname}?room=${S.code}`;
   const enough = S.players.length >= 3;
   const plural = n => n + ' round' + (n > 1 ? 's' : '');
-  const mins = S.timed ? Math.ceil(S.rounds * (90 + S.players.length * 37) / 60) : 0;
-  const summary = `${S.timed ? 'Timed game' : 'No timer'} &middot; ${plural(S.rounds)}${S.timed ? ' &middot; about ' + mins + ' min' : ''}`;
+  const mins = S.timed ? Math.ceil(S.rounds * (S.wt + S.players.length * (S.vt + 12)) / 60) : 0;
+  const summary = `${S.timed ? 'Timed game' : 'No timer'} &middot; ${plural(S.rounds)}${S.timed ? ' &middot; write ' + S.wt + 's &middot; guess ' + S.vt + 's &middot; about ' + mins + ' min' : ''}`;
   const on = (t, r) => S.timed === t && S.rounds === r ? 'on' : '';
-  const settings = S.timed === undefined ? (S.isHost ? `
+  const settings = (S.timed === undefined || S.wt === undefined) ? (S.isHost ? `
     <div class="panel"><p class="big">Game settings</p>
       <p class="err" style="margin:0">Your game server is out of date, so the timer and round options can't work. Upload the latest <b>app.py</b> to GitHub and let Render redeploy.</p>
     </div>` : '') : S.isHost ? `
@@ -521,15 +523,20 @@ function renderLobby() {
       <label>Quick pick</label>
       <div class="presets">
         <button class="preset ${on(false, 1)}" data-p="0,1" aria-pressed="${on(false, 1) === 'on'}"><b>Relaxed</b><span>No timer<br>1 round</span></button>
-        <button class="preset ${on(true, 2)}" data-p="1,2" aria-pressed="${on(true, 2) === 'on'}"><b>Party</b><span>Timed<br>2 rounds</span></button>
-        <button class="preset ${on(true, 5)}" data-p="1,5" aria-pressed="${on(true, 5) === 'on'}"><b>Marathon</b><span>Timed<br>5 rounds</span></button>
+        <button class="preset ${on(true, 2)}" data-p="1,2,90,25" aria-pressed="${on(true, 2) === 'on'}"><b>Party</b><span>Timed<br>2 rounds</span></button>
+        <button class="preset ${on(true, 5)}" data-p="1,5,60,20" aria-pressed="${on(true, 5) === 'on'}"><b>Marathon</b><span>Timed<br>5 rounds</span></button>
       </div>
       <label>Timer</label>
       <div class="seg" role="group" aria-label="Timer">
         <button data-t="1" class="${S.timed ? 'on' : ''}" aria-pressed="${S.timed}">Timed</button>
         <button data-t="0" class="${S.timed ? '' : 'on'}" aria-pressed="${!S.timed}">No timer</button>
       </div>
-      <p class="hint2">${S.timed ? 'Write in 90 seconds, guess in 25. Turns move on by themselves.' : 'Take all the time you like. You press Next yourself.'}</p>
+      ${S.timed ? `
+      <label for="wt" style="margin-top:12px">Writing time: <b id="wtv">${S.wt}s</b></label>
+      <input type="range" id="wt" min="30" max="180" step="15" value="${S.wt}">
+      <label for="vt">Guessing time: <b id="vtv">${S.vt}s</b></label>
+      <input type="range" id="vt" min="10" max="60" step="5" value="${S.vt}">
+      <p class="hint2">Turns move on by themselves when time runs out.</p>` : '<p class="hint2">Take all the time you like. You press Next yourself.</p>'}
       <label>Rounds</label>
       <div class="seg" role="group" aria-label="Number of rounds">${[1, 2, 3, 5].map(n => `<button data-r="${n}" class="${S.rounds === n ? 'on' : ''}" aria-pressed="${S.rounds === n}">${n}</button>`).join('')}</div>
       <p class="hint2" style="margin-bottom:0">Each round, everyone writes new cards and gets a turn.</p>
@@ -562,9 +569,14 @@ function renderLobby() {
     try { await navigator.clipboard.writeText(link); e.target.textContent = 'Link copied'; }
     catch { e.target.textContent = 'Copy it from above'; }
   };
-  app.querySelectorAll('[data-t]').forEach(b => b.onclick = () => setSetup(b.dataset.t === '1', S.rounds));
-  app.querySelectorAll('[data-r]').forEach(b => b.onclick = () => setSetup(S.timed, +b.dataset.r));
-  app.querySelectorAll('[data-p]').forEach(b => b.onclick = () => { const [t, r] = b.dataset.p.split(','); setSetup(t === '1', +r); });
+  app.querySelectorAll('[data-t]').forEach(b => b.onclick = () => setSetup({ timed: b.dataset.t === '1' }));
+  app.querySelectorAll('[data-r]').forEach(b => b.onclick = () => setSetup({ rounds: +b.dataset.r }));
+  app.querySelectorAll('[data-p]').forEach(b => b.onclick = () => { const [t, r, w, v] = b.dataset.p.split(','); setSetup({ timed: t === '1', rounds: +r, ...(w ? { wt: +w, vt: +v } : {}) }); });
+  [['wt', 'wtv'], ['vt', 'vtv']].forEach(([k, out]) => {   // sliders: label moves while dragging, saved on release
+    const r = document.getElementById(k); if (!r) return;
+    r.oninput = () => { document.getElementById(out).textContent = r.value + 's'; };
+    r.onchange = () => setSetup({ [k]: +r.value });
+  });
   const st = document.getElementById('start'); if (st) st.onclick = () => act('start');
   document.getElementById('leave').onclick = leave;
 }
