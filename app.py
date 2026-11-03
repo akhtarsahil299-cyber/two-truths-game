@@ -20,6 +20,9 @@ MAX_PLAYERS = 12
 MIN_PLAYERS = 3
 POINTS = 100
 MAX_LEN = 120
+WRITE_T, VOTE_T, REVEAL_T = 90, 25, 12   # seconds, used only in timed games
+AWAY = 12                                # host unseen this long => host passes to a friend
+ROUND_CHOICES = (1, 2, 3, 5)
 
 
 class GameError(Exception):
@@ -84,6 +87,58 @@ def current_presenter(room):
     return room["queue"][room["current"]]
 
 
+def set_deadline(room, secs):
+    if room["timed"]:
+        room["deadline"], room["span"] = time.time() + secs, secs
+    else:
+        room["deadline"], room["span"] = None, 0
+
+
+def advance(room):
+    """Move on after a reveal: next presenter, next game round, or the final screen."""
+    room["current"] += 1
+    room["votes"], room["gains"] = {}, []
+    if room["current"] < len(room["queue"]):
+        room["phase"] = "voting"
+        set_deadline(room, VOTE_T)
+    elif room["gr"] < room["rounds"]:
+        room["gr"] += 1
+        room.update(entries={}, queue=[], current=0, phase="writing")
+        set_deadline(room, WRITE_T)
+    else:
+        room["phase"] = "final"
+        room["deadline"] = None
+
+
+def tick(room):
+    """Runs on every request, so timers and host hand-over need no background thread."""
+    now, changed = time.time(), False
+    host = room["players"][room["host"]]
+    if now - host["seen"] > AWAY:
+        live = [(p["seen"], i) for i, p in room["players"].items() if i != room["host"] and now - p["seen"] < 6]
+        if live:
+            new = max(live)[1]
+            room["host"] = new
+            msg = f'{host["name"]} left, so {room["players"][new]["name"]} is now the host.'
+            room["chat"] = (room["chat"] + [{"pid": "", "name": "Game", "text": msg}])[-50:]
+            room["cn"] += 1
+            changed = True
+    if room["deadline"] and now > room["deadline"]:
+        ph = room["phase"]
+        if ph == "writing":
+            if len(room["entries"]) >= 2:
+                begin_voting(room)
+            else:
+                set_deadline(room, 30)  # too few cards yet: give 30 more seconds
+        elif ph == "voting":
+            do_reveal(room)
+        elif ph == "reveal":
+            advance(room)
+        changed = True
+    if changed:
+        touch(room)
+
+
 def begin_voting(room):
     ready = [p for p in room["players"] if p in room["entries"]]
     random.shuffle(ready)
@@ -92,6 +147,7 @@ def begin_voting(room):
     room["votes"] = {}
     room["gains"] = []
     room["phase"] = "voting"
+    set_deadline(room, VOTE_T)
 
 
 def do_reveal(room):
@@ -113,6 +169,7 @@ def do_reveal(room):
         key=lambda g: -g["points"],
     )
     room["phase"] = "reveal"
+    set_deadline(room, REVEAL_T)
 
 
 def public_state(room, pid):
@@ -124,6 +181,11 @@ def public_state(room, pid):
         "you": pid,
         "isHost": room["host"] == pid,
         "submitted": pid in room["entries"],
+        "timed": room["timed"],
+        "rounds": room["rounds"],
+        "gr": room["gr"],
+        "span": room["span"],
+        "left": max(0, room["deadline"] - time.time()) if room["deadline"] else None,
         "cn": room["cn"],
         "chat": [{"name": m["name"], "text": m["text"], "me": m["pid"] == pid} for m in room["chat"][-40:]],
         "players": [
@@ -198,6 +260,8 @@ def state():
         room = get_room(request.args.get("code"))
         pid = request.args.get("pid", "")
         get_player(room, pid)
+        room["players"][pid]["seen"] = time.time()
+        tick(room)
         return jsonify(public_state(room, pid))
 
 
@@ -216,7 +280,7 @@ def action():
                 "code": code,
                 "host": pid,
                 "phase": "lobby",
-                "players": {pid: {"name": name, "score": 0}},
+                "players": {pid: {"name": name, "score": 0, "seen": time.time()}},
                 "entries": {},
                 "queue": [],
                 "current": 0,
@@ -224,6 +288,11 @@ def action():
                 "gains": [],
                 "chat": [],
                 "cn": 0,
+                "timed": False,
+                "rounds": 1,
+                "gr": 1,
+                "deadline": None,
+                "span": 0,
                 "v": 0,
                 "updated": time.time(),
             }
@@ -240,13 +309,15 @@ def action():
             if len(room["players"]) >= MAX_PLAYERS:
                 raise GameError("This room is full.")
             pid = new_id()
-            room["players"][pid] = {"name": name, "score": 0}
+            room["players"][pid] = {"name": name, "score": 0, "seen": time.time()}
             touch(room)
             return jsonify(code=room["code"], pid=pid)
 
         room = get_room(data.get("code"))
         pid = data.get("pid", "")
         get_player(room, pid)
+        room["players"][pid]["seen"] = time.time()
+        tick(room)
         phase = room["phase"]
 
         if kind == "chat":  # chat never bumps room["v"], so game screens are not redrawn
@@ -271,6 +342,8 @@ def action():
                 raise GameError(f"You need at least {MIN_PLAYERS} players.")
             room["phase"] = "writing"
             room["entries"] = {}
+            room["gr"] = 1
+            set_deadline(room, WRITE_T)
 
         elif kind == "submit":
             if phase != "writing":
@@ -329,10 +402,7 @@ def action():
             require_host(room, pid)
             if phase != "reveal":
                 raise GameError("Reveal the answer first.")
-            room["current"] += 1
-            room["votes"] = {}
-            room["gains"] = []
-            room["phase"] = "final" if room["current"] >= len(room["queue"]) else "voting"
+            advance(room)
 
         elif kind == "again":
             require_host(room, pid)
@@ -340,7 +410,15 @@ def action():
                 raise GameError("The game is not over yet.")
             for p in room["players"].values():
                 p["score"] = 0
-            room.update(phase="lobby", entries={}, queue=[], current=0, votes={}, gains=[])
+            room.update(phase="lobby", entries={}, queue=[], current=0, votes={}, gains=[], gr=1, deadline=None, span=0)
+
+        elif kind == "settings":
+            require_host(room, pid)
+            if phase != "lobby":
+                raise GameError("Settings are locked once the game starts.")
+            room["timed"] = bool(data.get("timed"))
+            if data.get("rounds") in ROUND_CHOICES:
+                room["rounds"] = data["rounds"]
 
         else:
             raise GameError("Unknown action.")
