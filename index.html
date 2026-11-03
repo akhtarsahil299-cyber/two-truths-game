@@ -169,6 +169,15 @@ button.card:active:not(:disabled){box-shadow:0 2px 0 var(--ink)}
 @keyframes blink{0%,80%,100%{opacity:.25}40%{opacity:1}}
 @keyframes pulse{50%{opacity:.35}}
 @media (prefers-reduced-motion:reduce){.dm,.dsc,.dstamp,.live,.tdots i{animation:none}}
+.timer{display:flex;align-items:center;gap:10px;margin-bottom:12px;color:#fff;font-weight:800}
+.tbar{flex:1;height:14px;background:rgba(255,255,255,.2);border:2px solid var(--ink);border-radius:99px;overflow:hidden}
+.tbar i{display:block;height:100%;width:100%;background:var(--sun);transition:width .25s linear,background .3s}
+.timer.low .tbar i{background:var(--coral)}.timer.low #tmt{animation:pulse .5s infinite}
+#tmt{min-width:46px;text-align:right;font-size:20px}
+.seg{display:flex;gap:8px;margin:6px 0 4px}
+.seg button{flex:1;padding:10px 6px;background:var(--paper);box-shadow:0 3px 0 var(--ink)}
+.seg button.on{background:var(--sun)}
+.hint2{color:var(--mute);font-size:14px;margin:4px 0 14px}
 #snd{position:fixed;z-index:9;top:max(10px,env(safe-area-inset-top));right:10px;width:auto;padding:6px 12px;font-size:13px;background:rgba(255,251,240,.92);box-shadow:0 3px 0 var(--ink)}
 @media (prefers-reduced-motion:reduce){.stamp{animation:none}button{transition:none}}
 </style>
@@ -234,8 +243,10 @@ async function poll(force) {
     const prevPhase = S && S.phase;
     sfx.onState(S, s);
     S = s;
+    tRecv = performance.now();
+    if (prevPhase !== s.phase) autoSent = false;
     chatSync(s);
-    if (prevPhase === 'lobby' && s.phase === 'writing') draft = { s: ['', '', ''], lie: null };
+    if ((prevPhase === 'lobby' || prevPhase === 'reveal') && s.phase === 'writing') draft = { s: ['', '', ''], lie: null };
     const key = (s.phase === 'writing' && !s.submitted) ? 'writing-form' : `${s.phase}-${s.v}`;
     if (force || key !== renderedKey) { renderedKey = key; render(); }
   } catch (e) {
@@ -255,11 +266,47 @@ const sfx = (() => {
     o.connect(g).connect(a.destination); o.start(t); o.stop(t + dur + .05);
   }
   const seq = (notes, step, dur, type, vol) => notes.forEach((n, i) => tone(n, i * step, dur, type, vol));
+  /* Original 8-bit arcade loop for the start screen. Written for this game, not a copy of any existing tune. */
+  const music = (() => {
+    const M = [76,0,79,76,0,81,0,79, 77,0,81,77,0,84,0,81, 79,0,83,79,0,86,0,83, 84,83,81,79,76,0,81,0];
+    const B = [45,0,52,0,45,0,52,0, 41,0,48,0,41,0,48,0, 43,0,50,0,43,0,50,0, 40,0,47,0,45,0,52,0];
+    const STEP = 60 / 140 / 2, hz = m => 440 * Math.pow(2, (m - 69) / 12);
+    let timer = null, next = 0, i = 0, mg = null, want = false, unlocked = false;
+    function note(m, t, d, type, vol) {
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.type = type; o.frequency.value = hz(m);
+      g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + d);
+      o.connect(g).connect(mg); o.start(t); o.stop(t + d + .05);
+    }
+    function sched() {
+      while (next < ac.currentTime + .4) {
+        const k = i % 32;
+        if (M[k]) note(M[k], next, STEP * 1.5, 'square', .035);
+        if (B[k]) note(B[k], next, STEP * 1.8, 'triangle', .09);
+        next += STEP; i++;
+      }
+    }
+    function start() {
+      if (timer || !ctx()) return;
+      mg = ac.createGain(); mg.gain.value = 1; mg.connect(ac.destination);
+      next = ac.currentTime + .1; i = 0; sched(); timer = setInterval(sched, 120);
+    }
+    function stop() {
+      if (!timer) return;
+      clearInterval(timer); timer = null; const g = mg;
+      g.gain.setValueAtTime(g.gain.value, ac.currentTime); g.gain.linearRampToValueAtTime(0, ac.currentTime + .35);
+      setTimeout(() => g.disconnect(), 600);
+    }
+    const apply = () => (want && on && unlocked && !document.hidden) ? start() : stop();
+    document.addEventListener('visibilitychange', apply);
+    return { want: v => { want = v; apply(); }, unlock: () => { unlocked = true; apply(); }, apply };
+  })();
   const S = {
     tap: () => tone(520, 0, .07, 'triangle', .1),
     lock: () => { tone(440, 0, .07, 'triangle', .13); tone(660, .07, .12, 'triangle', .13); },
     join: () => { tone(660, 0, .08, 'sine', .12); tone(990, .08, .14, 'sine', .12); },
     ready: () => tone(740, 0, .09, 'triangle', .08),
+    tick: () => tone(880, 0, .05, 'square', .05),
     start: () => tone(250, 0, .4, 'sawtooth', .07, 900),
     round: () => seq([523, 659, 784], .09, .16, 'triangle', .12),
     drum: () => { for (let i = 0; i < 11; i++) tone(170, i * (.085 - i * .004), .07, 'sine', .22, 70); },
@@ -273,7 +320,7 @@ const sfx = (() => {
   function onState(a, b) {
     if (!a || a.code !== b.code) return;
     if (b.phase === 'lobby' && b.players.length > a.players.length) return play('join');
-    if (a.phase === 'lobby' && b.phase === 'writing') return play('start');
+    if ((a.phase === 'lobby' || a.phase === 'reveal') && b.phase === 'writing') return play('start');
     if (b.phase === 'writing' && a.phase === 'writing' && b.players.filter(p => p.submitted).length > a.players.filter(p => p.submitted).length) return play('ready');
     if (b.phase === 'voting' && (a.phase === 'writing' || a.phase === 'reveal')) return play('round');
     if (b.phase === 'reveal' && a.phase === 'voting') {
@@ -288,11 +335,13 @@ const sfx = (() => {
   }
   const btn = document.getElementById('snd');
   const label = () => { btn.textContent = on ? 'Sound on' : 'Sound off'; btn.setAttribute('aria-pressed', on); };
-  btn.onclick = () => { on = !on; localStorage.setItem('ttl-mute', on ? '0' : '1'); label(); if (on) play('tap'); };
+  btn.onclick = () => { on = !on; localStorage.setItem('ttl-mute', on ? '0' : '1'); label(); music.apply(); if (on) play('tap'); };
   label();
-  document.addEventListener('pointerdown', ctx, { once: true });
+  const unlock = () => { ctx(); music.unlock(); };
+  document.addEventListener('pointerdown', unlock, { once: true });
+  document.addEventListener('keydown', unlock, { once: true });
   document.addEventListener('click', e => { const b = e.target.closest('button'); if (b && b.id !== 'snd' && !b.classList.contains('card')) play('tap'); });
-  return { onState, lock: () => play('lock'), ping: () => play('ready') };
+  return { onState, lock: () => play('lock'), ping: () => play('ready'), tick: () => play('tick'), music: music.want };
 })();
 
 /* ---------- chat ---------- */
@@ -321,8 +370,24 @@ $c('csend').onclick = () => sendChat($c('cin').value);
 $c('cin').onkeydown = e => { if (e.key === 'Enter') sendChat($c('cin').value); };
 document.querySelectorAll('.quick button').forEach(b => b.onclick = () => sendChat(b.dataset.e));
 
+/* ---------- countdown ---------- */
+let tRecv = 0, lastTick = -1, autoSent = false;
+const roundTag = () => S.rounds > 1 ? `<p class="progress">Round ${S.gr} of ${S.rounds}</p>` : '';
+const timerHTML = () => (S.timed && S.left != null) ? '<div class="timer" id="tm" role="timer" aria-label="Time left"><div class="tbar"><i id="tmb"></i></div><span id="tmt"></span></div>' : '';
+setInterval(() => {
+  const el = document.getElementById('tmt'); if (!S || S.left == null || !el) return;
+  const r = Math.max(0, S.left - (performance.now() - tRecv) / 1000), secs = Math.ceil(r);
+  el.textContent = secs + 's';
+  document.getElementById('tmb').style.width = (S.span ? Math.min(100, r / S.span * 100) : 0) + '%';
+  document.getElementById('tm').classList.toggle('low', r <= 5);
+  if (secs !== lastTick) { lastTick = secs; if (r > 0 && r <= 5) sfx.tick(); }
+  // writing time is almost up: send the cards if all three are filled in
+  if (S.phase === 'writing' && !S.submitted && r <= .7 && !autoSent && draft.s.every(x => x.trim())) { autoSent = true; act('submit', { statements: draft.s, lie: 2 }); }
+}, 250);
+
 /* ---------- screens ---------- */
 function render() {
+  sfx.music(!(session && S));   // the arcade loop plays on the start screen only
   if (!session || !S) return renderHome();
   const fn = { lobby: renderLobby, writing: renderWriting, voting: renderRound, reveal: renderRound, final: renderFinal }[S.phase];
   fn();
@@ -429,6 +494,25 @@ function renderHome() {
 function renderLobby() {
   const link = `${location.origin}${location.pathname}?room=${S.code}`;
   const enough = S.players.length >= 3;
+  const plural = n => n + ' round' + (n > 1 ? 's' : '');
+  const settings = S.isHost ? `
+    <div class="panel">
+      <p class="big">Game settings</p>
+      <label>Timer</label>
+      <div class="seg" role="group" aria-label="Timer">
+        <button data-t="1" class="${S.timed ? 'on' : ''}" aria-pressed="${S.timed}">Timed</button>
+        <button data-t="0" class="${S.timed ? '' : 'on'}" aria-pressed="${!S.timed}">No timer</button>
+      </div>
+      <p class="hint2">${S.timed ? 'Write in 90 seconds, guess in 25. Turns move on by themselves.' : 'Take all the time you like. You press Next yourself.'}</p>
+      <label>Rounds</label>
+      <div class="seg" role="group" aria-label="Number of rounds">${[1, 2, 3, 5].map(n => `<button data-r="${n}" class="${S.rounds === n ? 'on' : ''}" aria-pressed="${S.rounds === n}">${n}</button>`).join('')}</div>
+      <p class="hint2" style="margin-bottom:0">Each round, everyone writes new cards and gets a turn.</p>
+    </div>` : `
+    <div class="panel">
+      <p class="big">Game settings</p>
+      <p style="margin:0 0 4px;font-weight:600">${S.timed ? 'Timed game' : 'No timer'} &middot; ${plural(S.rounds)}</p>
+      <p class="hint2" style="margin-bottom:0">The host chooses these.</p>
+    </div>`;
   app.innerHTML = `
     <h2>Waiting for friends</h2>
     <p class="sub">Share this code or link. Everyone needs a phone or laptop.</p>
@@ -440,8 +524,9 @@ function renderLobby() {
     </div>
     <div class="panel">
       <p class="big">${S.players.length} in the room</p>
-      <div class="chips">${S.players.map(p => `<span class="chip ${p.isHost ? 'host' : ''}">${esc(p.name)}${p.id === S.you ? ' (you)' : ''}</span>`).join('')}</div>
+      <div class="chips">${S.players.map(p => `<span class="chip ${p.isHost ? 'host' : ''}">${esc(p.name)}${p.id === S.you ? ' (you)' : ''}${p.isHost ? ' &middot; host' : ''}</span>`).join('')}</div>
     </div>
+    ${settings}
     ${S.isHost
       ? `<button id="start" ${enough ? '' : 'disabled'}>${enough ? 'Start the game' : 'Need 3 players to start'}</button>`
       : `<p class="sub">The host will start the game.</p>`}
@@ -450,6 +535,8 @@ function renderLobby() {
     try { await navigator.clipboard.writeText(link); e.target.textContent = 'Link copied'; }
     catch { e.target.textContent = 'Copy it from above'; }
   };
+  app.querySelectorAll('[data-t]').forEach(b => b.onclick = () => act('settings', { timed: b.dataset.t === '1', rounds: S.rounds }));
+  app.querySelectorAll('[data-r]').forEach(b => b.onclick = () => act('settings', { timed: S.timed, rounds: +b.dataset.r }));
   const st = document.getElementById('start'); if (st) st.onclick = () => act('start');
   document.getElementById('leave').onclick = leave;
 }
@@ -459,6 +546,7 @@ function renderWriting() {
     const waiting = S.players.filter(p => !p.submitted);
     const ready = S.players.length - waiting.length;
     app.innerHTML = `
+      ${timerHTML()}${roundTag()}
       <h2>Cards are in</h2>
       <p class="sub">Waiting for ${waiting.length} ${waiting.length === 1 ? 'friend' : 'friends'} to finish.</p>
       ${errBox()}
@@ -475,6 +563,7 @@ function renderWriting() {
       <input type="text" maxlength="120" data-i="${i}" autocomplete="off" placeholder="Type it here..." value="${esc(draft.s[i])}" aria-label="${title}">
       <div class="whint">${hint}</div></div>`).join('');
   app.innerHTML = `
+    ${timerHTML()}${roundTag()}
     <h2>Write your three cards</h2>
     <p class="sub">Two truths and one lie. Friends see them mixed up, so nobody can guess by position.</p>
     ${errBox()}
@@ -497,7 +586,7 @@ function renderRound() {
   const r = S.round;
   const mine = r.presenterId === S.you;
   const revealed = S.phase === 'reveal';
-  const head = `<p class="progress">Round ${r.index} of ${r.total}</p>
+  const head = `${timerHTML()}<p class="progress">${S.rounds > 1 ? 'Round ' + S.gr + ' of ' + S.rounds + ' &middot; ' : ''}Turn ${r.index} of ${r.total}</p>
     <h2>${mine ? 'Your cards are up' : `${esc(r.presenterName)}'s cards`}</h2>`;
 
   let cards;
@@ -530,7 +619,7 @@ function renderRound() {
 
   let actions = '';
   if (S.isHost && !revealed) actions = `<button id="reveal" class="ghost">Reveal now</button>`;
-  if (S.isHost && revealed) actions = `<button id="next">${r.index === r.total ? 'See final scores' : 'Next round'}</button>`;
+  if (S.isHost && revealed) actions = `<button id="next">${r.index === r.total ? (S.gr < S.rounds ? 'Start round ' + (S.gr + 1) : 'See final scores') : 'Next turn'}</button>`;
 
   app.innerHTML = `${head}${errBox()}${status}<div class="cards">${cards}</div>${actions}
     <div class="panel gap"><p class="big">Scores</p>${scoreboard(revealed)}</div>
