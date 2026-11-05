@@ -169,10 +169,6 @@ button.card:active:not(:disabled){box-shadow:0 2px 0 var(--ink)}
 @keyframes blink{0%,80%,100%{opacity:.25}40%{opacity:1}}
 @keyframes pulse{50%{opacity:.35}}
 @media (prefers-reduced-motion:reduce){.dm,.dsc,.dstamp,.live,.tdots i{animation:none}}
-.timer{display:flex;align-items:center;gap:10px;margin-bottom:12px;color:#fff;font-weight:800}
-.tbar{flex:1;height:14px;background:rgba(255,255,255,.2);border:2px solid var(--ink);border-radius:99px;overflow:hidden}
-.tbar i{display:block;height:100%;width:100%;background:var(--sun);transition:width .25s linear,background .3s}
-.timer.low .tbar i{background:var(--coral)}.timer.low #tmt{animation:pulse .5s infinite}
 #tmt{min-width:46px;text-align:right;font-size:20px}
 .seg{display:flex;gap:8px;margin:6px 0 4px}
 .seg button{flex:1;padding:10px 6px;background:var(--paper);box-shadow:0 3px 0 var(--ink)}
@@ -195,11 +191,6 @@ button.card:active:not(:disabled){box-shadow:0 2px 0 var(--ink)}
 @keyframes islam{from{scale:2.4;opacity:0;rotate:-14deg}to{scale:1;opacity:1;rotate:-4deg}}
 @keyframes icap{from{opacity:0;translate:0 8px}to{opacity:1;translate:0 0}}
 @media (prefers-reduced-motion:reduce){#intro .icard,#intro .icard::after,#intro .isticker,#intro .icap{animation:none!important}}
-input[type=range]{width:100%;height:32px;margin:0 0 8px;accent-color:var(--blue)}
-.presets{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:6px 0 14px}
-.preset{display:flex;flex-direction:column;align-items:center;gap:3px;width:100%;padding:10px 4px;font-size:15px;line-height:1.15;background:var(--paper);box-shadow:0 3px 0 var(--ink)}
-.preset span{font-size:12px;font-weight:600;color:var(--mute)}
-.preset.on{background:var(--sun)}.preset.on span{color:var(--ink)}
 .sumline{margin-top:12px;padding:9px 12px;border-radius:12px;background:#F3EFE0;font-weight:700;font-size:15px}
 .hint2{color:var(--mute);font-size:14px;margin:4px 0 14px}
 #snd{position:fixed;z-index:9;top:max(10px,env(safe-area-inset-top));right:10px;width:auto;padding:6px 12px;font-size:13px;background:rgba(255,251,240,.92);box-shadow:0 3px 0 var(--ink)}
@@ -268,8 +259,6 @@ async function poll(force) {
     if (S && S.phase === 'writing' && s.phase === 'voting') playIntro();
     sfx.onState(S, s);
     S = s;
-    tRecv = performance.now();
-    if (prevPhase !== s.phase) autoSent = false;
     chatSync(s);
     if ((prevPhase === 'lobby' || prevPhase === 'reveal') && s.phase === 'writing') draft = { s: ['', '', ''], lie: null };
     const key = (s.phase === 'writing' && !s.submitted) ? 'writing-form' : `${s.phase}-${s.v}`;
@@ -331,7 +320,6 @@ const sfx = (() => {
     lock: () => { tone(440, 0, .07, 'triangle', .13); tone(660, .07, .12, 'triangle', .13); },
     join: () => { tone(660, 0, .08, 'sine', .12); tone(990, .08, .14, 'sine', .12); },
     ready: () => tone(740, 0, .09, 'triangle', .08),
-    tick: () => tone(880, 0, .05, 'square', .05),
     start: () => tone(250, 0, .4, 'sawtooth', .07, 900),
     round: () => seq([523, 659, 784], .09, .16, 'triangle', .12),
     intro: () => { tone(160, 0, .5, 'sawtooth', .05, 820); tone(100, .62, .3, 'sine', .4, 40); tone(784, .62, .12, 'square', .06); tone(1047, .74, .3, 'square', .06); },
@@ -368,7 +356,7 @@ const sfx = (() => {
   document.addEventListener('pointerdown', unlock, { once: true });
   document.addEventListener('keydown', unlock, { once: true });
   document.addEventListener('click', e => { const b = e.target.closest('button'); if (b && b.id !== 'snd' && !b.classList.contains('card')) play('tap'); });
-  return { onState, lock: () => play('lock'), ping: () => play('ready'), tick: () => play('tick'), music: music.want };
+  return { onState, lock: () => play('lock'), ping: () => play('ready'), music: music.want };
 })();
 
 /* ---------- "Guess the lie!" intro (about 2 seconds) ---------- */
@@ -407,20 +395,7 @@ $c('csend').onclick = () => sendChat($c('cin').value);
 $c('cin').onkeydown = e => { if (e.key === 'Enter') sendChat($c('cin').value); };
 document.querySelectorAll('.quick button').forEach(b => b.onclick = () => sendChat(b.dataset.e));
 
-/* ---------- countdown ---------- */
-let tRecv = 0, lastTick = -1, autoSent = false;
 const roundTag = () => S.rounds > 1 ? `<p class="progress">Round ${S.gr} of ${S.rounds}</p>` : '';
-const timerHTML = () => (S.timed && S.left != null) ? '<div class="timer" id="tm" role="timer" aria-label="Time left"><div class="tbar"><i id="tmb"></i></div><span id="tmt"></span></div>' : '';
-setInterval(() => {
-  const el = document.getElementById('tmt'); if (!S || S.left == null || !el) return;
-  const r = Math.max(0, S.left - (performance.now() - tRecv) / 1000), secs = Math.ceil(r);
-  el.textContent = secs + 's';
-  document.getElementById('tmb').style.width = (S.span ? Math.min(100, r / S.span * 100) : 0) + '%';
-  document.getElementById('tm').classList.toggle('low', r <= 5);
-  if (secs !== lastTick) { lastTick = secs; if (r > 0 && r <= 5) sfx.tick(); }
-  // writing time is almost up: send the cards if all three are filled in
-  if (S.phase === 'writing' && !S.submitted && r <= .7 && !autoSent && draft.s.every(x => x.trim())) { autoSent = true; act('submit', { statements: draft.s, lie: 2 }); }
-}, 250);
 
 /* ---------- screens ---------- */
 function render() {
@@ -530,8 +505,8 @@ function renderHome() {
 
 /* host setup: shows the choice instantly, then asks the server to save it */
 async function setSetup(patch) {
-  const next = { timed: S.timed, rounds: S.rounds, wt: S.wt, vt: S.vt, ...patch };
-  if (Object.keys(next).every(k => S[k] === next[k])) { if (error) { error = ''; renderedKey = null; render(); } return; }
+  const next = { rounds: S.rounds, ...patch };
+  if (S.rounds === next.rounds) return;
   error = ''; Object.assign(S, next); renderedKey = null; render();
   try { await api('/api/action', { type: 'settings', code: session.code, pid: session.pid, ...next }); }
   catch (e) { error = e.message === 'Unknown action.' ? 'Your game server is out of date. Upload the latest app.py to GitHub and let Render redeploy.' : e.message; }
@@ -542,41 +517,18 @@ function renderLobby() {
   const link = `${location.origin}${location.pathname}?room=${S.code}`;
   const enough = S.players.length >= 3;
   const plural = n => n + ' round' + (n > 1 ? 's' : '');
-  const mins = S.timed ? Math.ceil(S.rounds * (S.wt + S.players.length * (S.vt + 12)) / 60) : 0;
-  const summary = `${S.timed ? 'Timed game' : 'No timer'} &middot; ${plural(S.rounds)}${S.timed ? ' &middot; write ' + S.wt + 's &middot; guess ' + S.vt + 's &middot; about ' + mins + ' min' : ''}`;
-  const on = (t, r) => S.timed === t && S.rounds === r ? 'on' : '';
-  const settings = (S.timed === undefined || S.wt === undefined) ? (S.isHost ? `
-    <div class="panel"><p class="big">Game settings</p>
-      <p class="err" style="margin:0">Your game server is out of date, so the timer and round options can't work. Upload the latest <b>app.py</b> to GitHub and let Render redeploy.</p>
-    </div>` : '') : S.isHost ? `
+  const settings = S.rounds === undefined ? '' : S.isHost ? `
     <div class="panel">
       <p class="big">Game settings</p>
-      <label>Quick pick</label>
-      <div class="presets">
-        <button class="preset ${on(false, 1)}" data-p="0,1" aria-pressed="${on(false, 1) === 'on'}"><b>Relaxed</b><span>No timer<br>1 round</span></button>
-        <button class="preset ${on(true, 2)}" data-p="1,2,90,25" aria-pressed="${on(true, 2) === 'on'}"><b>Party</b><span>Timed<br>2 rounds</span></button>
-        <button class="preset ${on(true, 5)}" data-p="1,5,60,20" aria-pressed="${on(true, 5) === 'on'}"><b>Marathon</b><span>Timed<br>5 rounds</span></button>
-      </div>
-      <label>Timer</label>
-      <div class="seg" role="group" aria-label="Timer">
-        <button data-t="1" class="${S.timed ? 'on' : ''}" aria-pressed="${S.timed}">Timed</button>
-        <button data-t="0" class="${S.timed ? '' : 'on'}" aria-pressed="${!S.timed}">No timer</button>
-      </div>
-      ${S.timed ? `
-      <label for="wt" style="margin-top:12px">Writing time: <b id="wtv">${S.wt}s</b></label>
-      <input type="range" id="wt" min="30" max="180" step="15" value="${S.wt}">
-      <label for="vt">Guessing time: <b id="vtv">${S.vt}s</b></label>
-      <input type="range" id="vt" min="10" max="60" step="5" value="${S.vt}">
-      <p class="hint2">Turns move on by themselves when time runs out.</p>` : '<p class="hint2">Take all the time you like. You press Next yourself.</p>'}
       <label>Rounds</label>
       <div class="seg" role="group" aria-label="Number of rounds">${[1, 2, 3, 5].map(n => `<button data-r="${n}" class="${S.rounds === n ? 'on' : ''}" aria-pressed="${S.rounds === n}">${n}</button>`).join('')}</div>
-      <p class="hint2" style="margin-bottom:0">Each round, everyone writes new cards and gets a turn.</p>
-      <div class="sumline" aria-live="polite">${summary}</div>
+      <p class="hint2" style="margin-bottom:0">Each round, everyone writes new cards and gets a turn. You press Next to move the game on.</p>
+      <div class="sumline" aria-live="polite">${plural(S.rounds)}</div>
     </div>` : `
     <div class="panel">
       <p class="big">Game settings</p>
-      <div class="sumline" style="margin-top:0">${summary}</div>
-      <p class="hint2" style="margin:8px 0 0">The host chooses these.</p>
+      <div class="sumline" style="margin-top:0">${plural(S.rounds)}</div>
+      <p class="hint2" style="margin:8px 0 0">The host chooses this.</p>
     </div>`;
   app.innerHTML = `
     <h2>Waiting for friends</h2>
@@ -600,14 +552,7 @@ function renderLobby() {
     try { await navigator.clipboard.writeText(link); e.target.textContent = 'Link copied'; }
     catch { e.target.textContent = 'Copy it from above'; }
   };
-  app.querySelectorAll('[data-t]').forEach(b => b.onclick = () => setSetup({ timed: b.dataset.t === '1' }));
   app.querySelectorAll('[data-r]').forEach(b => b.onclick = () => setSetup({ rounds: +b.dataset.r }));
-  app.querySelectorAll('[data-p]').forEach(b => b.onclick = () => { const [t, r, w, v] = b.dataset.p.split(','); setSetup({ timed: t === '1', rounds: +r, ...(w ? { wt: +w, vt: +v } : {}) }); });
-  [['wt', 'wtv'], ['vt', 'vtv']].forEach(([k, out]) => {   // sliders: label moves while dragging, saved on release
-    const r = document.getElementById(k); if (!r) return;
-    r.oninput = () => { document.getElementById(out).textContent = r.value + 's'; };
-    r.onchange = () => setSetup({ [k]: +r.value });
-  });
   const st = document.getElementById('start'); if (st) st.onclick = () => act('start');
   document.getElementById('leave').onclick = leave;
 }
@@ -617,7 +562,7 @@ function renderWriting() {
     const waiting = S.players.filter(p => !p.submitted);
     const ready = S.players.length - waiting.length;
     app.innerHTML = `
-      ${timerHTML()}${roundTag()}
+      ${roundTag()}
       <h2>Cards are in</h2>
       <p class="sub">Waiting for ${waiting.length} ${waiting.length === 1 ? 'friend' : 'friends'} to finish.</p>
       ${errBox()}
@@ -634,7 +579,7 @@ function renderWriting() {
       <input type="text" maxlength="120" data-i="${i}" autocomplete="off" placeholder="Type it here..." value="${esc(draft.s[i])}" aria-label="${title}">
       <div class="whint">${hint}</div></div>`).join('');
   app.innerHTML = `
-    ${timerHTML()}${roundTag()}
+    ${roundTag()}
     <h2>Write your three cards</h2>
     <p class="sub">Two truths and one lie. Friends see them mixed up, so nobody can guess by position.</p>
     ${errBox()}
@@ -657,7 +602,7 @@ function renderRound() {
   const r = S.round;
   const mine = r.presenterId === S.you;
   const revealed = S.phase === 'reveal';
-  const head = `${timerHTML()}<p class="progress">${S.rounds > 1 ? 'Round ' + S.gr + ' of ' + S.rounds + ' &middot; ' : ''}Turn ${r.index} of ${r.total}</p>
+  const head = `<p class="progress">${S.rounds > 1 ? 'Round ' + S.gr + ' of ' + S.rounds + ' &middot; ' : ''}Turn ${r.index} of ${r.total}</p>
     <h2>${mine ? 'Your cards are up' : `${esc(r.presenterName)}'s cards`}</h2>`;
 
   let cards;
